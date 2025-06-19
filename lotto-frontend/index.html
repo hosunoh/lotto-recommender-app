@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Lotto Recommender</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔮 Lucky Lotto Recommender</h1>
+            <div class="model-selection">
+                <button class="tab-button active">통계 기반 추천</button>
+                </div>
+        </header>
+
+        <main>
+            <section class="controls">
+                <div class="draw-info">
+                    <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span></p>
+                    <p><strong>다음 추첨일:</strong> <span id="nextDrawDate">계산 중...</span></p>
+                </div>
+                <label for="numSets">몇 세트 추천받으시겠어요?</label>
+                <select id="numSets">
+                    <option value="1">1 세트</option>
+                    <option value="2">2 세트</option>
+                    <option value="3">3 세트</option>
+                    <option value="4">4 세트</option>
+                    <option value="5">5 세트</option>
+                    <option value="6">6 세트</option>
+                    <option value="7">7 세트</option>
+                    <option value="8">8 세트</option>
+                    <option value="9">9 세트</option>
+                    <option value="10">10 세트</option>
+                </select>
+                <button id="generateBtn">로또 번호 생성</button>
+            </section>
+
+            <section class="results">
+                <p id="message" class="hidden"></p>
+                <div id="lottoNumbersDisplay" class="lotto-grid">
+                    </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 Lucky Lotto Recommender. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
