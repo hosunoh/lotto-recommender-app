@@ -21,7 +21,8 @@ def load_lotto_data():
         # 파일을 찾을 수 없을 때의 오류 처리
         raise FileNotFoundError("lotto.csv not found in expected locations.")
 
-    df_lotto = pd.read_csv(csv_path, header=None, sep=r'\s+')
+    # 수정된 부분: sep=r'\s+' 대신 sep=',' 사용
+    df_lotto = pd.read_csv(csv_path, header=None, sep=',')
     return df_lotto
 
 # --- 기존에 구현한 함수들 (calc_frequency, calc_gap, generate_numbers_stat) ---
@@ -34,6 +35,9 @@ def calc_frequency(df_numbers):
     return frequency
 
 def calc_gap(df_lotto_original):
+    # 인덱싱이 [0, 1, 2, 3, 4, 5]로 고정되어 있으므로,
+    # df_lotto_original의 첫 6개 컬럼이 로또 번호임을 가정합니다.
+    # 만약 데이터에 따라 컬럼 인덱스가 달라질 수 있다면 이 부분을 유동적으로 변경해야 합니다.
     latest_draw_numbers = df_lotto_original.iloc[0, [0, 1, 2, 3, 4, 5]].tolist()
     gap_data = {}
     for num in range(1, 46):
@@ -43,6 +47,7 @@ def calc_gap(df_lotto_original):
             try:
                 draw_numbers = [int(n) for n in draw_numbers]
             except ValueError:
+                # 숫자로 변환할 수 없는 값이 있으면 해당 줄은 건너뜀
                 continue
             if num in draw_numbers:
                 found_in_draw = i
@@ -60,23 +65,26 @@ def generate_numbers_stat(frequency_data, gap_data, num_to_generate=6):
     for num in range(1, 46):
         freq = frequency_data.get(num, 0)
         gap = gap_data.get(num, 0)
-        score = freq + (gap * 2)
+        score = freq + (gap * 2) # 빈도와 간격을 이용한 점수 계산
         number_scores[num] = score
 
+    # 점수가 높은 순으로 정렬하여 상위 15개 후보군 선택
     sorted_numbers_by_score = sorted(number_scores.items(), key=lambda item: item[1], reverse=True)
     top_score_candidates = [num for num, score in sorted_numbers_by_score[:15]]
 
+    # 상위 후보군에서 무작위로 6개 선택 (중복 없이)
     while len(recommended_numbers) < num_to_generate and top_score_candidates:
         chosen = random.choice(top_score_candidates)
         recommended_numbers.add(chosen)
-        top_score_candidates.remove(chosen)
+        top_score_candidates.remove(chosen) # 선택된 번호는 후보군에서 제거
 
+    # 만약 상위 후보군만으로는 6개를 채우지 못했다면, 나머지 번호 중에서 무작위로 추가
     all_possible_numbers = set(range(1, 46))
     remaining_numbers = list(all_possible_numbers - recommended_numbers)
 
     while len(recommended_numbers) < num_to_generate:
         if not remaining_numbers:
-            break
+            break # 더 이상 추가할 번호가 없으면 종료
         chosen = random.choice(remaining_numbers)
         recommended_numbers.add(chosen)
         remaining_numbers.remove(chosen)
@@ -106,9 +114,12 @@ def get_lotto_numbers(request):
 
         # 데이터가 비어있을 경우 오류 처리
         if df_lotto_data.empty:
-            return ('{"error": "Failed to load lotto data: DataFrame is empty."}', 500, headers)
+            return (json.dumps({"error": "Failed to load lotto data: DataFrame is empty."}), 500, headers)
 
         # 통계 데이터 계산을 위한 컬럼 선택
+        # lotto.csv가 쉼표로 구분되어 여러 컬럼으로 들어왔지만,
+        # 로또 번호는 항상 첫 6개 컬럼에 있을 것이라고 가정합니다.
+        # 따라서 [0, 1, 2, 3, 4, 5] 인덱스를 그대로 사용합니다.
         lotto_numbers_columns_for_calc = [0, 1, 2, 3, 4, 5]
         df_lotto_for_calc = df_lotto_data[lotto_numbers_columns_for_calc]
 
@@ -120,11 +131,14 @@ def get_lotto_numbers(request):
         recommended_numbers = generate_numbers_stat(frequency_data, gap_data)
 
         # JSON 형식으로 결과 반환
-        response_data = {"lotto_numbers": recommended_numbers}
+        response_data = {"lotto_numbers": recommended_numbers, "message": "로또 추천 번호입니다!"} # 성공 메시지 추가
         return (json.dumps(response_data), 200, headers) # 200 OK, 성공적인 응답
 
     except FileNotFoundError as e:
         return (json.dumps({"error": f"File not found: {str(e)}"}), 500, headers)
+    except IndexError as e:
+        # 데이터프레임 인덱싱 오류 발생 시 (예: 컬럼이 충분하지 않을 때)
+        return (json.dumps({"error": f"Data indexing error, check lotto.csv format: {str(e)}"}), 500, headers)
     except Exception as e:
         # 예상치 못한 다른 오류 발생 시
         return (json.dumps({"error": f"An unexpected error occurred: {str(e)}"}), 500, headers)
@@ -150,6 +164,8 @@ if __name__ == '__main__':
         parsed_response = json.loads(response_body)
         if "lotto_numbers" in parsed_response:
             print(f"추천 로또 번호: {parsed_response['lotto_numbers']}")
+        elif "error" in parsed_response: # 오류 메시지도 출력
+            print(f"오류: {parsed_response['error']}")
     except json.JSONDecodeError:
         print("응답 바디가 JSON 형식이 아닙니다.")
     except Exception as e:
