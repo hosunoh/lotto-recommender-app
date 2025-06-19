@@ -8,7 +8,6 @@
     '--entry-point', 'get_lotto_numbers',
     '--region', 'us-central1', # <--- us-east4 로 설정됨
     '--source', '.',
-    '--gen1'
   ]
 timeout: 600s
 logsBucket: 'gs://cloud-build-logs-hosunoh-lotto-uscentral2' # <--- 스크린샷과 동일
