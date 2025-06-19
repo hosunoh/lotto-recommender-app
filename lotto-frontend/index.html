@@ -12,15 +12,18 @@
             <h1>🔮 Lucky Lotto Recommender</h1>
             <div class="model-selection">
                 <button class="tab-button active">통계 기반 추천</button>
-                </div>
+                <!-- 향후 ML/AI 모델 탭 추가: <button class="tab-button">ML/AI 기반 추천</button> -->
+            </div>
         </header>
 
         <main>
             <section class="controls">
                 <div class="draw-info">
-                    <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span></p>
-                    <p><strong>다음 추첨일:</strong> <span id="nextDrawDate">계산 중...</span></p>
+                    <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span> (당첨 내용 확인)</p>
+                    <!-- 수정된 부분: 다음 추첨 회차 정보 추가 -->
+                    <p><strong>다음 추첨일:</strong> <span id="nextDrawNum">계산 중...</span>, <span id="nextDrawDate">계산 중...</span></p>
                 </div>
+
                 <label for="numSets">몇 세트 추천받으시겠어요?</label>
                 <select id="numSets">
                     <option value="1">1 세트</option>
@@ -40,7 +43,8 @@
             <section class="results">
                 <p id="message" class="hidden"></p>
                 <div id="lottoNumbersDisplay" class="lotto-grid">
-                    </div>
+                    <!-- 여기에 생성된 로또 번호 세트들이 동적으로 추가됩니다 -->
+                </div>
             </section>
         </main>
 
