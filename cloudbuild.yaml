@@ -6,9 +6,9 @@
     '--trigger-http',
     '--allow-unauthenticated',
     '--entry-point', 'get_lotto_numbers',
-    '--region', 'us-east1',
+    '--region', 'us-central1', # <--- 여기를 변경된 리전으로 수정!
     '--source', '.',
     '--gen1'
   ]
 timeout: 600s
-logsBucket: 'gs://cloud-build-logs-hosunoh-lotto' # 여기에 방금 만든 버킷 이름을 정확히 입력하세요!
+logsBucket: 'gs://cloud-build-logs-hosunoh-lotto'
