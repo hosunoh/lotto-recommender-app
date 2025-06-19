@@ -6,8 +6,9 @@
     '--trigger-http',
     '--allow-unauthenticated',
     '--entry-point', 'get_lotto_numbers',
-    '--region', 'us-east1', # 뉴욕에 계시므로 us-east1 리전으로 설정
-    '--source', '.', # GitHub에서 가져온 코드의 현재 디렉토리
-    '--gen1' # 명시적으로 1세대로 배포 (선택 사항이지만 일관성을 위해)
+    '--region', 'us-east1',
+    '--source', '.',
+    '--gen1'
   ]
-timeout: 600s # 10분 (600초)으로 빌드 시간 제한 설정
+timeout: 600s
+logsBucket: 'gs://cloud-build-logs-hosunoh-lotto' # 여기에 방금 만든 버킷 이름을 정확히 입력하세요!
