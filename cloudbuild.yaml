@@ -6,9 +6,9 @@
     '--trigger-http',
     '--allow-unauthenticated',
     '--entry-point', 'get_lotto_numbers',
-    '--region', 'us-central1', # <--- 여기를 변경된 리전으로 수정!
+    '--region', 'us-east4', # <--- 여기를 변경된 리전으로 수정!
     '--source', '.',
     '--gen1'
   ]
 timeout: 600s
-logsBucket: 'gs://cloud-build-logs-hosunoh-lotto'
+logsBucket: 'gs://cloud-build-logs-hosunoh-lotto-uscentral1'
