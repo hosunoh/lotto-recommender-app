@@ -1,6 +1,5 @@
 // TODO: 여기에 당신의 Cloud Functions 트리거 URL을 붙여넣으세요!
-const CLOUD_FUNCTION_URL = "YOUR_CLOUD_FUNCTION_TRIGGER_URL_HERE"; 
-// 예: "https://us-central1-lucky-vicky-lotto-app.cloudfunctions.net/get-lotto-numbers"
+const CLOUD_FUNCTION_URL = "https://us-central1-lucky-vicky-lotto-app.cloudfunctions.net/get-lotto-numbers"
 
 const generateBtn = document.getElementById('generateBtn');
 const numSetsSelect = document.getElementById('numSets');
@@ -10,18 +9,17 @@ const messageElement = document.getElementById('message');
 // 날짜 정보 표시할 요소들
 const latestDrawNumSpan = document.getElementById('latestDrawNum');
 const nextDrawDateSpan = document.getElementById('nextDrawDate');
+const nextDrawNumSpan = document.getElementById('nextDrawNum'); // 다음 추첨 회차를 표시할 새 span
 
 // --- 초기화 함수: 페이지 로드 시 날짜 정보 계산 및 표시 ---
 function initializeApp() {
-    displayNextDrawDate(); // 다음 추첨일 계산 및 표시
-    // TODO: 최신 회차는 API 또는 로컬 데이터로 가져와야 함 (현재는 임시 값)
-    // 현재는 'lotto.csv'에 회차 정보가 추가되어 있다면 백엔드에서 가져올 수 있습니다.
-    // 일단은 임시 값으로 유지하거나, lotto.csv의 첫 줄 회차를 읽어오도록 개선할 수 있습니다.
-    latestDrawNumSpan.textContent = '1121회'; // 임시 값, 실제 최신 회차는 백엔드에서 가져오는 것이 좋음
+    displayNextDrawDateAndNumber(); // 다음 추첨일 및 회차 계산 및 표시
+    // 최신 회차 정보는 API 호출 후 업데이트됩니다. 초기에는 "불러오는 중..."으로 둡니다.
 }
 
-// --- 다음 로또 추첨일 계산 함수 ---
-function displayNextDrawDate() {
+// --- 다음 로또 추첨일 및 회차 계산 함수 ---
+async function displayNextDrawDateAndNumber() {
+    // 현재 날짜 및 요일 계산
     const today = new Date();
     const currentDayOfWeek = today.getDay(); // 0(일요일) ~ 6(토요일)
 
@@ -30,11 +28,12 @@ function displayNextDrawDate() {
         daysUntilSaturday = 7;
     } else { // 오늘이 토요일이 아니면, 다음 토요일까지 남은 일수 계산
         daysUntilSaturday = (6 - currentDayOfWeek + 7) % 7;
-        if (daysUntilSaturday === 0) { // 만약 오늘이 토요일이 아니었지만 계산상 0일이 나온다면 (이미 지난 요일 처리), 다음 주 토요일로
+        if (daysUntilSaturday === 0) { // 계산상 0일이 나오면 (이미 지난 요일 처리), 다음 주 토요일로
             daysUntilSaturday = 7;
         }
     }
-    
+
+    // 다음 토요일 날짜 계산
     const nextSaturday = new Date(today);
     nextSaturday.setDate(today.getDate() + daysUntilSaturday);
 
@@ -44,7 +43,36 @@ function displayNextDrawDate() {
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
     const dayOfWeek = dayNames[nextSaturday.getDay()];
 
+    // UI에 다음 추첨일 날짜 업데이트
     nextDrawDateSpan.textContent = `${year}년 ${month}월 ${day}일 (${dayOfWeek})`;
+
+    // 최신 회차를 가져와서 다음 회차 계산 (API 호출을 통해)
+    try {
+        console.log("Fetching latest draw number from API...");
+        const response = await fetch(CLOUD_FUNCTION_URL, { method: 'GET' });
+
+        if (!response.ok) {
+            const errorText = await response.text(); // 오류 응답 텍스트 가져오기
+            throw new Error(`API 오류: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log("API response for latest draw number:", data); // 응답 데이터 로깅
+
+        if (data.latest_draw_number !== undefined) { // latest_draw_number 필드가 존재하는지 확인
+            latestDrawNumSpan.textContent = `${data.latest_draw_number}회`;
+            // 다음 추첨 회차는 최신 회차 + 1
+            nextDrawNumSpan.textContent = `${data.latest_draw_number + 1}회`;
+        } else {
+            console.warn("API 응답에 'latest_draw_number' 필드가 없습니다.", data);
+            latestDrawNumSpan.textContent = '정보 없음';
+            nextDrawNumSpan.textContent = '계산 불가';
+        }
+    } catch (error) {
+        console.error("최신 회차 정보 로딩 오류:", error);
+        latestDrawNumSpan.textContent = '오류 발생';
+        nextDrawNumSpan.textContent = '오류 발생';
+    }
 }
 
 
@@ -59,7 +87,7 @@ async function generateLottoNumbers() {
     const numSets = parseInt(numSetsSelect.value);
     lottoNumbersDisplay.innerHTML = ''; // 기존 번호 초기화
     messageElement.classList.add('hidden'); // 메시지 숨김
-    
+
     // 로딩 메시지 표시
     showMessage('로또 번호 생성 중입니다...', 'info');
     lottoNumbersDisplay.innerHTML = '<div class="spinner"></div>'; // 로딩 스피너 추가
@@ -109,6 +137,7 @@ async function generateLottoNumbers() {
     }
 }
 
+// 로또 번호 세트를 UI에 표시하는 함수
 function displayLottoSet(numbers, setIndex) {
     const card = document.createElement('div');
     card.classList.add('lotto-set-card');
@@ -136,6 +165,7 @@ function displayLottoSet(numbers, setIndex) {
     lottoNumbersDisplay.appendChild(card);
 }
 
+// 사용자에게 메시지를 표시하는 함수 (성공, 오류, 정보 등)
 function showMessage(msg, type) {
     messageElement.textContent = msg;
     messageElement.classList.remove('hidden', 'error', 'info', 'success', 'warning'); // 기존 클래스 제거
