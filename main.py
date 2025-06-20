@@ -228,6 +228,69 @@ def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_ev
 
     return final_numbers
 
+# --- 전역 변수 초기화 (콜드 스타트 시 한 번만 실행) ---
+# 이 부분은 Cloud Functions 인스턴스가 로드될 때 한 번만 실행되어
+# 이후의 요청 처리 속도를 향상시킵니다.
+_df_lotto_data = None
+_latest_draw_number = None
+_latest_draw_details = None
+_frequency_data = None
+_gap_data = None
+_consecutive_patterns = None
+_odd_even_ratios = None
+_sum_ranges = None
+_ending_digit_patterns = None
+
+def _initialize_global_data():
+    global _df_lotto_data, _latest_draw_number, _latest_draw_details, \
+           _frequency_data, _gap_data, _consecutive_patterns, \
+           _odd_even_ratios, _sum_ranges, _ending_digit_patterns
+
+    if _df_lotto_data is None: # 이미 초기화되었으면 다시 하지 않음
+        print("Initializing global data for Cloud Function...")
+        try:
+            _df_lotto_data = load_lotto_data()
+
+            if _df_lotto_data.empty:
+                raise ValueError("Loaded lotto data DataFrame is empty.")
+
+            _latest_draw_number = int(_df_lotto_data.iloc[-1, 0])
+            
+            latest_draw_row = _df_lotto_data.iloc[-1].tolist()
+            winning_numbers = [int(n) for n in latest_draw_row[1:7]]
+            bonus_number = int(latest_draw_row[7])
+            prizes = {
+                "1st": int(latest_draw_row[9]) if len(latest_draw_row) > 9 and pd.notna(latest_draw_row[9]) else None,
+                "2nd": int(latest_draw_row[10]) if len(latest_draw_row) > 10 and pd.notna(latest_draw_row[10]) else None,
+                "3rd": int(latest_draw_row[11]) if len(latest_draw_row) > 11 and pd.notna(latest_draw_row[11]) else None,
+                "4th": int(latest_draw_row[12]) if len(latest_draw_row) > 12 and pd.notna(latest_draw_row[12]) else None,
+                "5th": int(latest_draw_row[13]) if len(latest_draw_row) > 13 and pd.notna(latest_draw_row[13]) else None,
+            }
+            _latest_draw_details = {
+                "winning_numbers": winning_numbers,
+                "bonus_number": bonus_number,
+                "prizes": prizes
+            }
+            
+            lotto_numbers_columns_for_calc = [1, 2, 3, 4, 5, 6]
+            df_lotto_for_calc = _df_lotto_data[lotto_numbers_columns_for_calc].copy()
+
+            _consecutive_patterns = analyze_consecutive_patterns(_df_lotto_data)
+            _odd_even_ratios = analyze_odd_even_ratios(_df_lotto_data)
+            _sum_ranges = analyze_sum_ranges(_df_lotto_data)
+            _ending_digit_patterns = analyze_ending_digit_patterns(_df_lotto_data)
+            
+            _frequency_data = calc_frequency(df_lotto_for_calc)
+            _gap_data = calc_gap(_df_lotto_data)
+            
+            print("Global data initialization complete.")
+
+        except Exception as e:
+            print(f"Error during global data initialization: {e}")
+            # 초기화 실패 시, 함수 호출에서 오류를 반환하도록 처리
+            _df_lotto_data = pd.DataFrame() # 빈 데이터프레임으로 설정하여 이후 요청에서 오류 발생 유도
+
+
 # --- Cloud Functions 진입점 ---
 def get_lotto_numbers(request):
     headers = {
@@ -240,62 +303,29 @@ def get_lotto_numbers(request):
     if request.method == 'OPTIONS':
         return ('', 204, headers)
 
+    # 함수 호출 시마다 전역 데이터 초기화 시도
+    _initialize_global_data()
+
     try:
-        df_lotto_data = load_lotto_data()
+        # 전역 변수에 데이터가 로드되지 않았다면 오류 반환
+        if _df_lotto_data is None or _df_lotto_data.empty:
+            return (json.dumps({"error": "Lotto data not initialized or is empty."}), 500, headers)
 
-        if df_lotto_data.empty:
-            return (json.dumps({"error": "Failed to load lotto data: DataFrame is empty."}), 500, headers)
-
-        # 최신 회차 번호 추출 (마지막 행, 첫 번째 컬럼)
-        latest_draw_number = int(df_lotto_data.iloc[-1, 0])
-        
-        # 최신 회차의 당첨 번호, 보너스 번호, 당첨금 정보 추출 (마지막 행)
-        latest_draw_row = df_lotto_data.iloc[-1].tolist()
-        
-        winning_numbers = [int(n) for n in latest_draw_row[1:7]]
-        bonus_number = int(latest_draw_row[7])
-        
-        prizes = {
-            "1st": int(latest_draw_row[9]) if len(latest_draw_row) > 9 and pd.notna(latest_draw_row[9]) else None,
-            "2nd": int(latest_draw_row[10]) if len(latest_draw_row) > 10 and pd.notna(latest_draw_row[10]) else None,
-            "3rd": int(latest_draw_row[11]) if len(latest_draw_row) > 11 and pd.notna(latest_draw_row[11]) else None,
-            "4th": int(latest_draw_row[12]) if len(latest_draw_row) > 12 and pd.notna(latest_draw_row[12]) else None,
-            "5th": int(latest_draw_row[13]) if len(latest_draw_row) > 13 and pd.notna(latest_draw_row[13]) else None,
-        }
-        
-        # 통계 데이터 계산을 위한 로또 번호 컬럼 선택 (인덱스 1부터 6까지)
-        lotto_numbers_columns_for_calc = [1, 2, 3, 4, 5, 6]
-        df_lotto_for_calc = df_lotto_data[lotto_numbers_columns_for_calc].copy()
-
-        # 새로운 통계 패턴 분석 함수 호출
-        consecutive_patterns = analyze_consecutive_patterns(df_lotto_data)
-        odd_even_ratios = analyze_odd_even_ratios(df_lotto_data)
-        sum_ranges = analyze_sum_ranges(df_lotto_data)
-        ending_digit_patterns = analyze_ending_digit_patterns(df_lotto_data)
-
-        # calc_frequency와 calc_gap 함수 호출
-        frequency_data = calc_frequency(df_lotto_for_calc)
-        gap_data = calc_gap(df_lotto_data)
-
-        # 최종 로또 번호 생성 (새로운 통계 데이터 전달)
+        # 전역 변수에서 필요한 데이터 사용
         recommended_numbers = generate_numbers_stat(
-            frequency_data, 
-            gap_data, 
-            consecutive_patterns, 
-            odd_even_ratios, 
-            sum_ranges, 
-            ending_digit_patterns
+            _frequency_data, 
+            _gap_data, 
+            _consecutive_patterns, 
+            _odd_even_ratios, 
+            _sum_ranges, 
+            _ending_digit_patterns
         )
 
         response_data = {
             "lotto_numbers": recommended_numbers,
             "message": "로또 추천 번호입니다!",
-            "latest_draw_number": latest_draw_number,
-            "latest_draw_details": {
-                "winning_numbers": winning_numbers,
-                "bonus_number": bonus_number,
-                "prizes": prizes
-            }
+            "latest_draw_number": _latest_draw_number,
+            "latest_draw_details": _latest_draw_details
         }
         return (json.dumps(response_data), 200, headers)
 
@@ -306,6 +336,7 @@ def get_lotto_numbers(request):
     except ValueError as e:
         return (json.dumps({"error": f"Data conversion error, check lotto.csv content for non-numeric values or missing data: {str(e)}"}), 500, headers)
     except Exception as e:
+        # 예상치 못한 다른 오류 발생 시, 초기화 오류도 포함될 수 있음
         return (json.dumps({"error": f"An unexpected error occurred: {str(e)}"}), 500, headers)
 
 # --- 로컬 테스트를 위한 코드 ---
