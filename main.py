@@ -4,7 +4,7 @@ import random
 import os
 import json
 
-# --- 데이터 로드 함수 (Cloud Functions 환경에 맞춰 수정 필요) ---
+# --- 데이터 로드 함수 ---
 def load_lotto_data():
     if os.path.exists('data/lotto.csv'):
         csv_path = 'data/lotto.csv'
@@ -16,7 +16,7 @@ def load_lotto_data():
     df_lotto = pd.read_csv(csv_path, header=None, sep=',')
     return df_lotto
 
-# --- 기존에 구현한 함수들 (calc_frequency, calc_gap, generate_numbers_stat) ---
+# --- 기존 통계 함수 ---
 def calc_frequency(df_numbers):
     df_numbers_numeric = df_numbers.apply(pd.to_numeric, errors='coerce')
     all_numbers = df_numbers_numeric.values.flatten()
@@ -51,36 +51,184 @@ def calc_gap(df_lotto_original):
         gap_data[num] = gap
     return gap_data
 
-def generate_numbers_stat(frequency_data, gap_data, num_to_generate=6):
+# --- 새로운 통계 패턴 분석 함수들 ---
+
+# 연속 번호 패턴 분석
+def analyze_consecutive_patterns(df_lotto_original):
+    consecutive_counts = {2: 0, 3: 0, 4: 0, 5: 0} # 2개, 3개, 4개, 5개 연속 번호
+    total_draws = len(df_lotto_original)
+
+    for i in range(total_draws):
+        draw_numbers = sorted([int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()])
+        
+        current_consecutive = 1
+        max_consecutive = 1
+        
+        for j in range(len(draw_numbers) - 1):
+            if draw_numbers[j+1] == draw_numbers[j] + 1:
+                current_consecutive += 1
+            else:
+                max_consecutive = max(max_consecutive, current_consecutive)
+                current_consecutive = 1
+        max_consecutive = max(max_consecutive, current_consecutive) # 마지막 연속 번호 처리
+
+        if max_consecutive >= 2:
+            consecutive_counts[2] += 1
+        if max_consecutive >= 3:
+            consecutive_counts[3] += 1
+        if max_consecutive >= 4:
+            consecutive_counts[4] += 1
+        if max_consecutive >= 5:
+            consecutive_counts[5] += 1
+            
+    # 각 연속 번호 패턴이 총 추첨에서 나타난 비율을 반환 (0으로 나누는 것 방지)
+    return {k: v / total_draws if total_draws > 0 else 0 for k, v in consecutive_counts.items()}
+
+# 홀수/짝수 비율 분석
+def analyze_odd_even_ratios(df_lotto_original):
+    odd_even_counts = Counter() # (홀수 개수, 짝수 개수) 튜플
+    total_draws = len(df_lotto_original)
+
+    for i in range(total_draws):
+        draw_numbers = [int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()]
+        odd_count = sum(1 for num in draw_numbers if num % 2 != 0)
+        even_count = 6 - odd_count
+        odd_even_counts[(odd_count, even_count)] += 1
+    
+    # 각 비율이 나타난 빈도를 백분율로 반환
+    return {k: v / total_draws if total_draws > 0 else 0 for k, v in odd_even_counts.items()}
+
+# 번호 총합 범위 분석
+def analyze_sum_ranges(df_lotto_original):
+    sum_ranges = Counter()
+    total_draws = len(df_lotto_original)
+    
+    # 일반적으로 사용되는 로또 합계 범위 (조정 가능)
+    ranges = [
+        (21, 50), (51, 80), (81, 110), (111, 140), (141, 170), (171, 200), (201, 231)
+    ]
+
+    for i in range(total_draws):
+        draw_numbers = [int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()]
+        current_sum = sum(draw_numbers)
+        
+        found_range = False
+        for r_min, r_max in ranges:
+            if r_min <= current_sum <= r_max:
+                sum_ranges[f'{r_min}~{r_max}'] += 1
+                found_range = True
+                break
+        if not found_range: # 정의된 범위 밖에 있는 경우
+            sum_ranges['Other'] += 1
+            
+    return {k: v / total_draws if total_draws > 0 else 0 for k, v in sum_ranges.items()}
+
+# 끝자리 수 패턴 분석
+def analyze_ending_digit_patterns(df_lotto_original):
+    ending_digit_counts = Counter()
+    total_draws = len(df_lotto_original)
+
+    for i in range(total_draws):
+        draw_numbers = [int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()]
+        digits = [num % 10 for num in draw_numbers] # 끝자리 추출
+        ending_digit_counts[tuple(sorted(digits))] += 1 # 정렬된 튜플로 패턴 저장
+    
+    # 각 끝자리 패턴이 나타난 빈도를 백분율로 반환
+    return {k: v / total_draws if total_draws > 0 else 0 for k, v in ending_digit_counts.items()}
+
+
+# --- 추천 번호 생성 함수 (고도화) ---
+def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_even_ratios, sum_ranges, ending_digit_patterns, num_to_generate=6):
     recommended_numbers = set()
     number_scores = {}
+    
+    # 1. 개별 번호 점수 초기화 (빈도 + 간격)
     for num in range(1, 46):
         freq = frequency_data.get(num, 0)
         gap = gap_data.get(num, 0)
-        score = freq + (gap * 2)
+        score = freq + (gap * 2) # 기존 점수 계산
         number_scores[num] = score
 
+    # 2. 번호 조합의 '패턴' 점수 계산 및 반영 (가중치 조절 가능)
+    # 현재는 개별 번호 점수만 고려하고 패턴 점수는 후속 처리에서 사용하거나,
+    # 개별 번호 선택 후 조합을 평가하여 다시 뽑는 방식으로 적용할 수 있습니다.
+    # 여기서는 점수 계산 로직을 복잡하게 만들기보다는, 먼저 개별 번호의 통계적 우위를 강화하는 데 집중합니다.
+    # 패턴 점수는 최종 조합 생성 후 '조합의 유효성 검사'에 더 적합합니다.
+
+    # 3. 번호 선택 로직 개선: 상위 점수 후보군에서 시작하되, 패턴을 고려하여 조합을 완성
+    
+    # 먼저, 점수가 높은 번호 20개를 후보군으로 선택 (조정 가능)
     sorted_numbers_by_score = sorted(number_scores.items(), key=lambda item: item[1], reverse=True)
-    top_score_candidates = [num for num, score in sorted_numbers_by_score[:15]]
+    top_candidates = [num for num, score in sorted_numbers_by_score[:20]] 
 
-    while len(recommended_numbers) < num_to_generate and top_score_candidates:
-        chosen = random.choice(top_score_candidates)
-        recommended_numbers.add(chosen)
-        top_score_candidates.remove(chosen)
-
-    all_possible_numbers = set(range(1, 46))
-    remaining_numbers = list(all_possible_numbers - recommended_numbers)
+    # 최종 추천 번호 조합 생성 (패턴 가이드라인 적용)
+    # 목표: 6개의 숫자를 선택할 때, 특정 패턴을 만족하는 조합을 만들도록 시도
+    
+    # 목표 홀수/짝수 비율 (예: 3홀 3짝, 또는 4홀 2짝이 가장 흔함)
+    target_odd_even_ratios = [(3, 3), (4, 2), (2, 4)]
+    # 목표 총합 범위 (예: 80-150 사이가 가장 흔함)
+    target_sum_range = (80, 150) 
+    # 목표 연속 번호 개수 (예: 0~2개 연속 번호가 가장 흔함)
+    target_consecutive_max = 2 
 
     while len(recommended_numbers) < num_to_generate:
-        if not remaining_numbers:
-            break
-        chosen = random.choice(remaining_numbers)
+        # 남아있는 후보군이 없거나, 너무 적으면 전체 범위에서 선택
+        if not top_candidates:
+            remaining_numbers = list(set(range(1, 46)) - recommended_numbers)
+            if not remaining_numbers: break
+            chosen = random.choice(remaining_numbers)
+        else:
+            chosen = random.choice(top_candidates)
+            top_candidates.remove(chosen) # 중복 선택 방지
+
         recommended_numbers.add(chosen)
-        remaining_numbers.remove(chosen)
+        
+        # 임시 조합으로 패턴 검사 (매번 엄격하게 적용하기보다, 최종 단계에서 조합을 검토하는 것이 현실적)
+        # 이 부분은 지금 당장 복잡하게 구현하기보다, 나중에 패턴 점수화 로직을 추가할 때 고려
 
-    return sorted(list(recommended_numbers))
+    # 최종 생성된 번호 조합의 패턴을 확인하고 필요시 재조정하는 로직 추가 가능
+    # 현재는 개별 번호 점수 기반으로 선택 후 반환
+    
+    final_numbers = sorted(list(recommended_numbers))
 
-# --- Cloud Functions 진입점 (Entry Point) ---
+    # --- 최종 추천 조합의 패턴 점수 계산 (새로 추가) ---
+    # 이 부분은 생성된 조합이 얼마나 '좋은' 패턴을 가지고 있는지 평가하는 용도
+    # 번호 선택 로직에 직접 반영하기는 어려우므로, 참고용 점수로 활용
+
+    # 홀짝 비율 점수
+    odd_count = sum(1 for num in final_numbers if num % 2 != 0)
+    even_count = 6 - odd_count
+    odd_even_score = 0
+    if (odd_count, even_count) in [(3,3), (4,2), (2,4)]: # 가장 흔한 비율
+        odd_even_score += 10 # 높은 점수
+    
+    # 번호 합계 점수
+    current_sum = sum(final_numbers)
+    sum_score = 0
+    if target_sum_range[0] <= current_sum <= target_sum_range[1]: # 목표 합계 범위 내
+        sum_score += 10
+
+    # 연속 번호 점수
+    current_consecutive = 1
+    max_consecutive = 1
+    sorted_final_numbers = sorted(final_numbers)
+    for j in range(len(sorted_final_numbers) - 1):
+        if sorted_final_numbers[j+1] == sorted_final_numbers[j] + 1:
+            current_consecutive += 1
+        else:
+            max_consecutive = max(max_consecutive, current_consecutive)
+            current_consecutive = 1
+    max_consecutive = max(max_consecutive, current_consecutive)
+    consecutive_score = 0
+    if max_consecutive <= target_consecutive_max: # 목표 연속 번호 개수 이하
+        consecutive_score += 10
+
+    # 이 패턴 점수들을 어떻게 활용할지는 결정 필요 (예: 다시 뽑기, 사용자에게 정보 제공 등)
+    # 현재는 번호 선택에 직접 반영하지 않고, 로직에 대한 이해를 돕기 위해 추가
+
+    return final_numbers
+
+# --- Cloud Functions 진입점 ---
 def get_lotto_numbers(request):
     headers = {
         'Access-Control-Allow-Origin': '*',
@@ -104,13 +252,9 @@ def get_lotto_numbers(request):
         # 최신 회차의 당첨 번호, 보너스 번호, 당첨금 정보 추출 (마지막 행)
         latest_draw_row = df_lotto_data.iloc[-1].tolist()
         
-        # 당첨 번호 6개 (인덱스 1~6)
         winning_numbers = [int(n) for n in latest_draw_row[1:7]]
-        # 보너스 번호 (인덱스 7)
         bonus_number = int(latest_draw_row[7])
         
-        # 당첨금 정보 (인덱스 9부터 13까지)
-        # 해당 컬럼들이 숫자로 파싱 가능한지 확인
         prizes = {
             "1st": int(latest_draw_row[9]) if len(latest_draw_row) > 9 and pd.notna(latest_draw_row[9]) else None,
             "2nd": int(latest_draw_row[10]) if len(latest_draw_row) > 10 and pd.notna(latest_draw_row[10]) else None,
@@ -123,19 +267,31 @@ def get_lotto_numbers(request):
         lotto_numbers_columns_for_calc = [1, 2, 3, 4, 5, 6]
         df_lotto_for_calc = df_lotto_data[lotto_numbers_columns_for_calc].copy()
 
+        # 새로운 통계 패턴 분석 함수 호출
+        consecutive_patterns = analyze_consecutive_patterns(df_lotto_data)
+        odd_even_ratios = analyze_odd_even_ratios(df_lotto_data)
+        sum_ranges = analyze_sum_ranges(df_lotto_data)
+        ending_digit_patterns = analyze_ending_digit_patterns(df_lotto_data)
+
         # calc_frequency와 calc_gap 함수 호출
         frequency_data = calc_frequency(df_lotto_for_calc)
         gap_data = calc_gap(df_lotto_data)
 
-        # 최종 로또 번호 생성
-        recommended_numbers = generate_numbers_stat(frequency_data, gap_data)
+        # 최종 로또 번호 생성 (새로운 통계 데이터 전달)
+        recommended_numbers = generate_numbers_stat(
+            frequency_data, 
+            gap_data, 
+            consecutive_patterns, 
+            odd_even_ratios, 
+            sum_ranges, 
+            ending_digit_patterns
+        )
 
-        # JSON 형식으로 결과 반환
         response_data = {
             "lotto_numbers": recommended_numbers,
             "message": "로또 추천 번호입니다!",
             "latest_draw_number": latest_draw_number,
-            "latest_draw_details": { # 최신 당첨 내용 추가
+            "latest_draw_details": {
                 "winning_numbers": winning_numbers,
                 "bonus_number": bonus_number,
                 "prizes": prizes

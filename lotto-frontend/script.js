@@ -9,17 +9,23 @@ const messageElement = document.getElementById('message');
 // 날짜 정보 표시할 요소들
 const latestDrawNumSpan = document.getElementById('latestDrawNum');
 const nextDrawDateSpan = document.getElementById('nextDrawDate');
-const nextDrawNumSpan = document.getElementById('nextDrawNum'); // 다음 추첨 회차를 표시할 새 span
+const nextDrawNumSpan = document.getElementById('nextDrawNum');
+
+// 최신 당첨 내용 관련 요소
+const viewDrawDetailsBtn = document.getElementById('viewDrawDetails');
+const latestDrawDetailsSection = document.getElementById('latestDrawDetailsSection');
+const displayedDrawNumSpan = document.getElementById('displayedDrawNum');
+const hideDrawDetailsBtn = document.getElementById('hideDrawDetails');
+
+let cachedLatestDrawDetails = null; // API에서 가져온 최신 당첨 상세 정보를 저장할 변수
 
 // --- 초기화 함수: 페이지 로드 시 날짜 정보 계산 및 표시 ---
 function initializeApp() {
     displayNextDrawDateAndNumber(); // 다음 추첨일 및 회차 계산 및 표시
-    // 최신 회차 정보는 API 호출 후 업데이트됩니다. 초기에는 "불러오는 중..."으로 둡니다.
 }
 
 // --- 다음 로또 추첨일 및 회차 계산 함수 ---
 async function displayNextDrawDateAndNumber() {
-    // 현재 날짜 및 요일 계산
     const today = new Date();
     const currentDayOfWeek = today.getDay(); // 0(일요일) ~ 6(토요일)
 
@@ -33,7 +39,6 @@ async function displayNextDrawDateAndNumber() {
         }
     }
 
-    // 다음 토요일 날짜 계산
     const nextSaturday = new Date(today);
     nextSaturday.setDate(today.getDate() + daysUntilSaturday);
 
@@ -43,26 +48,25 @@ async function displayNextDrawDateAndNumber() {
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
     const dayOfWeek = dayNames[nextSaturday.getDay()];
 
-    // UI에 다음 추첨일 날짜 업데이트
     nextDrawDateSpan.textContent = `${year}년 ${month}월 ${day}일 (${dayOfWeek})`;
 
     // 최신 회차를 가져와서 다음 회차 계산 (API 호출을 통해)
     try {
-        console.log("Fetching latest draw number from API...");
+        console.log("Fetching latest draw number and details from API...");
         const response = await fetch(CLOUD_FUNCTION_URL, { method: 'GET' });
 
         if (!response.ok) {
-            const errorText = await response.text(); // 오류 응답 텍스트 가져오기
+            const errorText = await response.text();
             throw new Error(`API 오류: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
-        console.log("API response for latest draw number:", data); // 응답 데이터 로깅
+        console.log("API response for latest draw number and details:", data);
 
-        if (data.latest_draw_number !== undefined) { // latest_draw_number 필드가 존재하는지 확인
+        if (data.latest_draw_number !== undefined) {
             latestDrawNumSpan.textContent = `${data.latest_draw_number}회`;
-            // 다음 추첨 회차는 최신 회차 + 1
             nextDrawNumSpan.textContent = `${data.latest_draw_number + 1}회`;
+            cachedLatestDrawDetails = data.latest_draw_details; // 최신 당첨 상세 정보 캐싱
         } else {
             console.warn("API 응답에 'latest_draw_number' 필드가 없습니다.", data);
             latestDrawNumSpan.textContent = '정보 없음';
@@ -75,9 +79,62 @@ async function displayNextDrawDateAndNumber() {
     }
 }
 
+// --- 최신 당첨 내용 표시 함수 ---
+function displayLatestDrawDetails() {
+    if (!cachedLatestDrawDetails) {
+        showMessage('최신 당첨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.', 'warning');
+        return;
+    }
+
+    // 최신 회차 번호 업데이트
+    displayedDrawNumSpan.textContent = latestDrawNumSpan.textContent.replace('회', ''); // '1176회'에서 '1176'만 가져옴
+
+    const details = cachedLatestDrawDetails;
+    const mainNumbersDiv = latestDrawDetailsSection.querySelector('.main-numbers');
+    mainNumbersDiv.innerHTML = ''; // 기존 번호 초기화
+
+    // 당첨 번호 표시
+    details.winning_numbers.forEach(num => {
+        const numSpan = document.createElement('span');
+        numSpan.classList.add('lotto-number');
+        numSpan.textContent = num;
+        mainNumbersDiv.appendChild(numSpan);
+    });
+
+    // 보너스 번호 표시
+    const bonusNumSpan = latestDrawDetailsSection.querySelector('.bonus-num');
+    bonusNumSpan.textContent = details.bonus_number;
+
+    // 등수별 당첨금 표시
+    const prizeInfoGrid = latestDrawDetailsSection.querySelector('.prize-info-grid');
+    prizeInfoGrid.innerHTML = ''; // 기존 정보 초기화
+
+    // 등수별 텍스트 매핑
+    const rankNames = {
+        "1st": "1등", "2nd": "2등", "3rd": "3등", "4th": "4등", "5th": "5등"
+    };
+
+    for (const rank in details.prizes) {
+        if (details.prizes.hasOwnProperty(rank) && details.prizes[rank] !== null) {
+            const prizeItem = document.createElement('div');
+            prizeItem.classList.add('prize-item');
+            prizeItem.innerHTML = `<span>${rankNames[rank]}</span> <span>${details.prizes[rank].toLocaleString()}원</span>`;
+            prizeInfoGrid.appendChild(prizeItem);
+        }
+    }
+
+    latestDrawDetailsSection.classList.remove('hidden'); // 섹션 표시
+}
 
 // --- 이벤트 리스너 등록 ---
 generateBtn.addEventListener('click', generateLottoNumbers);
+viewDrawDetailsBtn.addEventListener('click', (e) => {
+    e.preventDefault(); // 기본 링크 동작 방지
+    displayLatestDrawDetails();
+});
+hideDrawDetailsBtn.addEventListener('click', () => {
+    latestDrawDetailsSection.classList.add('hidden'); // 섹션 숨김
+});
 
 // --- 페이지 로드 시 초기화 함수 호출 ---
 document.addEventListener('DOMContentLoaded', initializeApp);

@@ -19,9 +19,27 @@
         <main>
             <section class="controls">
                 <div class="draw-info">
-                    <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span> (당첨 내용 확인)</p>
-                    <!-- 다음 추첨 회차 및 날짜 정보를 표시할 부분 -->
+                    <!-- '당첨 내용 확인'을 클릭 가능하게 변경하고 id 추가 -->
+                    <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span> <a href="#" id="viewDrawDetails" class="link-button"> (당첨 내용 확인)</a></p>
                     <p><strong>다음 추첨일:</strong> <span id="nextDrawNum">계산 중...</span>, <span id="nextDrawDate">계산 중...</span></p>
+                </div>
+
+                <!-- 최신 당첨 내용 표시 섹션 (처음에는 숨김) -->
+                <div id="latestDrawDetailsSection" class="draw-details-section hidden">
+                    <h3>제 <span id="displayedDrawNum"></span>회 당첨 결과</h3>
+                    <div class="winning-numbers-display">
+                        <div class="main-numbers">
+                            <!-- 당첨 번호 표시 -->
+                        </div>
+                        <div class="bonus-number-display">
+                            + <span class="lotto-number bonus-num"></span>
+                            <p class="bonus-label">보너스</p>
+                        </div>
+                    </div>
+                    <div class="prize-info-grid">
+                        <!-- 등수별 당첨금 표시 -->
+                    </div>
+                    <button id="hideDrawDetails" class="hide-button">닫기</button>
                 </div>
 
                 <label for="numSets">몇 세트 추천받으시겠어요?</label>
