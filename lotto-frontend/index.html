@@ -10,18 +10,20 @@
     <div class="container">
         <header>
             <h1>🔮 Lucky Lotto Recommender</h1>
-            <div class="model-selection">
-                <button class="tab-button active">통계 기반 추천</button>
-                <!-- 향후 ML/AI 모델 탭 추가: <button class="tab-button">ML/AI 기반 추천</button> -->
-            </div>
         </header>
 
         <main>
             <section class="controls">
+                <!-- '최신 회차'와 '다음 추첨일' 섹션이 가장 위로 이동 -->
                 <div class="draw-info">
-                    <!-- '당첨 내용 확인'을 클릭 가능하게 변경하고 id 추가 -->
                     <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span> <a href="#" id="viewDrawDetails" class="link-button"> (당첨 내용 확인)</a></p>
                     <p><strong>다음 추첨일:</strong> <span id="nextDrawNum">계산 중...</span>, <span id="nextDrawDate">계산 중...</span></p>
+                </div>
+
+                <!-- '통계 기반 추천'과 'ML 기반 추천' 탭 섹션이 그 아래로 이동 -->
+                <div class="model-selection">
+                    <button id="statisticalTabBtn" class="tab-button active" data-model-type="statistical">통계 기반 추천</button>
+                    <button id="mlTabBtn" class="tab-button" data-model-type="kmeans">ML 기반 추천</button>
                 </div>
 
                 <!-- 최신 당첨 내용 표시 섹션 (처음에는 숨김) -->

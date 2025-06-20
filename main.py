@@ -3,21 +3,31 @@ from collections import Counter
 import random
 import os
 import json
+from sklearn.cluster import KMeans # KMeans 모델 추가
+import numpy as np # 넘파이 추가
 
 # --- 데이터 로드 함수 ---
 def load_lotto_data():
-    if os.path.exists('data/lotto.csv'):
+    # Cloud Functions 환경에서는 lotto.csv가 함수 코드와 함께 배포될 것입니다.
+    # 따라서 함수가 실행되는 디렉토리에서 lotto.csv를 찾아야 합니다.
+    # 'data' 폴더 안에 있다면 'data/lotto.csv' 경로를 사용합니다.
+    # Colab에서 테스트할 때는 'lotto-recommender-app/data/lotto.csv' 경로를 사용합니다.
+
+    if os.path.exists('data/lotto.csv'): # Cloud Functions 환경 예상
         csv_path = 'data/lotto.csv'
-    elif os.path.exists('lotto-recommender-app/data/lotto.csv'):
+    elif os.path.exists('lotto-recommender-app/data/lotto.csv'): # Colab 환경 예상
         csv_path = 'lotto-recommender-app/data/lotto.csv'
     else:
         raise FileNotFoundError("lotto.csv not found in expected locations.")
 
+    # sep=',' 사용하여 쉼표 구분 파일 읽기
+    # header=None은 첫 줄을 헤더로 인식하지 않도록 함
     df_lotto = pd.read_csv(csv_path, header=None, sep=',')
     return df_lotto
 
 # --- 기존 통계 함수 ---
 def calc_frequency(df_numbers):
+    # df_numbers는 이미 로또 번호 6개 컬럼만 포함한다고 가정
     df_numbers_numeric = df_numbers.apply(pd.to_numeric, errors='coerce')
     all_numbers = df_numbers_numeric.values.flatten()
     all_numbers = all_numbers[~pd.isna(all_numbers)]
@@ -26,34 +36,39 @@ def calc_frequency(df_numbers):
     return frequency
 
 def calc_gap(df_lotto_original):
-    if df_lotto_original.empty or len(df_lotto_original.columns) < 7:
+    # df_lotto_original은 회차 포함 전체 데이터프레임
+    # 로또 번호 컬럼은 인덱스 1부터 6까지
+    if df_lotto_original.empty or len(df_lotto_original.columns) < 7: # 최소 7개 컬럼 (회차 + 6개 번호) 확인
         raise ValueError("Lotto data format is incorrect for gap calculation.")
 
     gap_data = {}
     num_rows = len(df_lotto_original)
     
-    for num in range(1, 46):
-        found_at_draw_index = -1
-        for i in range(num_rows - 1, -1, -1):
+    # 각 번호(1~45)에 대해 간격 계산
+    for num in range(1, 46): # 로또 번호 범위 1~45
+        found_at_draw_index = -1 # 번호가 발견된 행 인덱스 (0부터 시작)
+
+        # 최신 회차 (마지막 행: num_rows - 1)부터 과거로 거슬러 올라가며 탐색
+        for i in range(num_rows - 1, -1, -1): # i는 num_rows-1 부터 0까지 역순으로
+            # 당첨 번호 컬럼: [1, 2, 3, 4, 5, 6]
             draw_numbers = df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()
             try:
                 draw_numbers = [int(n) for n in draw_numbers]
             except ValueError:
-                continue
+                continue # 숫자로 변환할 수 없는 값은 건너김
             if num in draw_numbers:
                 found_at_draw_index = i
-                break
+                break # 찾으면 가장 최근 출현 회차이므로 중단
         
+        # 간격 계산: (가장 최신 회차의 인덱스) - (발견된 회차의 인덱스)
         if found_at_draw_index != -1:
             gap = (num_rows - 1) - found_at_draw_index 
         else:
-            gap = num_rows
+            gap = num_rows # 전체 회차 동안 나오지 않았으면 전체 길이(총 회차 수)를 간격으로 설정
         gap_data[num] = gap
     return gap_data
 
-# --- 새로운 통계 패턴 분석 함수들 ---
-
-# 연속 번호 패턴 분석
+# --- 통계 패턴 분석 함수들 (이전과 동일) ---
 def analyze_consecutive_patterns(df_lotto_original):
     consecutive_counts = {2: 0, 3: 0, 4: 0, 5: 0} # 2개, 3개, 4개, 5개 연속 번호
     total_draws = len(df_lotto_original)
@@ -84,7 +99,6 @@ def analyze_consecutive_patterns(df_lotto_original):
     # 각 연속 번호 패턴이 총 추첨에서 나타난 비율을 반환 (0으로 나누는 것 방지)
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in consecutive_counts.items()}
 
-# 홀수/짝수 비율 분석
 def analyze_odd_even_ratios(df_lotto_original):
     odd_even_counts = Counter() # (홀수 개수, 짝수 개수) 튜플
     total_draws = len(df_lotto_original)
@@ -98,7 +112,6 @@ def analyze_odd_even_ratios(df_lotto_original):
     # 각 비율이 나타난 빈도를 백분율로 반환
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in odd_even_counts.items()}
 
-# 번호 총합 범위 분석
 def analyze_sum_ranges(df_lotto_original):
     sum_ranges = Counter()
     total_draws = len(df_lotto_original)
@@ -123,7 +136,6 @@ def analyze_sum_ranges(df_lotto_original):
             
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in sum_ranges.items()}
 
-# 끝자리 수 패턴 분석
 def analyze_ending_digit_patterns(df_lotto_original):
     ending_digit_counts = Counter()
     total_draws = len(df_lotto_original)
@@ -137,42 +149,25 @@ def analyze_ending_digit_patterns(df_lotto_original):
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in ending_digit_counts.items()}
 
 
-# --- 추천 번호 생성 함수 (고도화) ---
+# --- 추천 번호 생성 함수 (고도화 통계 모델) ---
 def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_even_ratios, sum_ranges, ending_digit_patterns, num_to_generate=6):
     recommended_numbers = set()
     number_scores = {}
     
-    # 1. 개별 번호 점수 초기화 (빈도 + 간격)
     for num in range(1, 46):
         freq = frequency_data.get(num, 0)
         gap = gap_data.get(num, 0)
         score = freq + (gap * 2) # 기존 점수 계산
         number_scores[num] = score
-
-    # 2. 번호 조합의 '패턴' 점수 계산 및 반영 (가중치 조절 가능)
-    # 현재는 개별 번호 점수만 고려하고 패턴 점수는 후속 처리에서 사용하거나,
-    # 개별 번호 선택 후 조합을 평가하여 다시 뽑는 방식으로 적용할 수 있습니다.
-    # 여기서는 점수 계산 로직을 복잡하게 만들기보다는, 먼저 개별 번호의 통계적 우위를 강화하는 데 집중합니다.
-    # 패턴 점수는 최종 조합 생성 후 '조합의 유효성 검사'에 더 적합합니다.
-
-    # 3. 번호 선택 로직 개선: 상위 점수 후보군에서 시작하되, 패턴을 고려하여 조합을 완성
     
-    # 먼저, 점수가 높은 번호 20개를 후보군으로 선택 (조정 가능)
     sorted_numbers_by_score = sorted(number_scores.items(), key=lambda item: item[1], reverse=True)
     top_candidates = [num for num, score in sorted_numbers_by_score[:20]] 
 
-    # 최종 추천 번호 조합 생성 (패턴 가이드라인 적용)
-    # 목표: 6개의 숫자를 선택할 때, 특정 패턴을 만족하는 조합을 만들도록 시도
+    # Note: Pattern considerations are currently implemented as a general guideline
+    # for selecting numbers from top_candidates, rather than a strict filter for every single generated set.
+    # The final scoring of pattern adherence is for informational purposes or further refinement.
     
-    # 목표 홀수/짝수 비율 (예: 3홀 3짝, 또는 4홀 2짝이 가장 흔함)
-    target_odd_even_ratios = [(3, 3), (4, 2), (2, 4)]
-    # 목표 총합 범위 (예: 80-150 사이가 가장 흔함)
-    target_sum_range = (80, 150) 
-    # 목표 연속 번호 개수 (예: 0~2개 연속 번호가 가장 흔함)
-    target_consecutive_max = 2 
-
     while len(recommended_numbers) < num_to_generate:
-        # 남아있는 후보군이 없거나, 너무 적으면 전체 범위에서 선택
         if not top_candidates:
             remaining_numbers = list(set(range(1, 46)) - recommended_numbers)
             if not remaining_numbers: break
@@ -183,12 +178,6 @@ def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_ev
 
         recommended_numbers.add(chosen)
         
-        # 임시 조합으로 패턴 검사 (매번 엄격하게 적용하기보다, 최종 단계에서 조합을 검토하는 것이 현실적)
-        # 이 부분은 지금 당장 복잡하게 구현하기보다, 나중에 패턴 점수화 로직을 추가할 때 고려
-
-    # 최종 생성된 번호 조합의 패턴을 확인하고 필요시 재조정하는 로직 추가 가능
-    # 현재는 개별 번호 점수 기반으로 선택 후 반환
-    
     final_numbers = sorted(list(recommended_numbers))
 
     # --- 최종 추천 조합의 패턴 점수 계산 (새로 추가) ---
@@ -205,7 +194,7 @@ def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_ev
     # 번호 합계 점수
     current_sum = sum(final_numbers)
     sum_score = 0
-    if target_sum_range[0] <= current_sum <= target_sum_range[1]: # 목표 합계 범위 내
+    if (current_sum >= 80 and current_sum <= 150): # 목표 합계 범위 내 (80-150)
         sum_score += 10
 
     # 연속 번호 점수
@@ -220,7 +209,7 @@ def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_ev
             current_consecutive = 1
     max_consecutive = max(max_consecutive, current_consecutive)
     consecutive_score = 0
-    if max_consecutive <= target_consecutive_max: # 목표 연속 번호 개수 이하
+    if max_consecutive <= 2: # 목표 연속 번호 개수 이하 (0~2개 연속)
         consecutive_score += 10
 
     # 이 패턴 점수들을 어떻게 활용할지는 결정 필요 (예: 다시 뽑기, 사용자에게 정보 제공 등)
@@ -228,9 +217,61 @@ def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_ev
 
     return final_numbers
 
+
+# --- 새로운 K-means 모델 관련 함수 ---
+def train_kmeans_model(df_lotto_original, n_clusters=5):
+    # 로또 번호 6개 컬럼만 선택하여 학습 데이터 준비
+    # 번호의 스케일을 조정 (예: Min-Max Scaling)하면 K-means 성능 향상에 도움이 될 수 있음
+    # 여기서는 간단하게 번호 자체를 사용
+    lotto_numbers_data = df_lotto_original.iloc[:, 1:7].values.astype(int)
+    
+    # KMeans 모델 학습
+    # random_state를 고정하여 결과의 재현성 확보
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10) # n_init 추가
+    kmeans.fit(lotto_numbers_data)
+    return kmeans
+
+def generate_numbers_kmeans(kmeans_model, num_to_generate=6):
+    # 학습된 클러스터 중심(centroids) 중 하나를 선택
+    # 가장 가까운 정수로 반올림하여 로또 번호로 사용
+    # 중복 및 1-45 범위 벗어나는 경우 처리 필요
+
+    # 클러스터 중심 (실수 형태)
+    centroids = kmeans_model.cluster_centers_
+
+    recommended_numbers_set = set()
+    attempts = 0
+    max_attempts = 100 # 무한 루프 방지
+
+    while len(recommended_numbers_set) < num_to_generate and attempts < max_attempts:
+        # 무작위로 클러스터 중심 하나를 선택
+        selected_centroid = centroids[random.randint(0, len(centroids) - 1)]
+        
+        # 중심 값을 반올림하여 로또 번호로 변환
+        # 번호 범위 (1-45) 및 중복 처리
+        candidate_numbers = sorted(list(set(
+            max(1, min(45, int(round(num)))) for num in selected_centroid
+        )))
+        
+        # 6개의 고유한 번호가 생성되었는지 확인
+        if len(candidate_numbers) >= num_to_generate:
+            # 원하는 개수만큼 번호 선택
+            # random.sample은 중복 없이 선택
+            for num in random.sample(candidate_numbers, num_to_generate):
+                recommended_numbers_set.add(num)
+        
+        attempts += 1
+    
+    # 마지막까지 6개를 채우지 못했으면, 부족한 만큼 랜덤 번호 추가
+    while len(recommended_numbers_set) < num_to_generate:
+        new_num = random.randint(1, 45)
+        recommended_numbers_set.add(new_num)
+
+    return sorted(list(recommended_numbers_set))
+
+
 # --- 전역 변수 초기화 (콜드 스타트 시 한 번만 실행) ---
-# 이 부분은 Cloud Functions 인스턴스가 로드될 때 한 번만 실행되어
-# 이후의 요청 처리 속도를 향상시킵니다.
+# Cloud Functions 인스턴스가 로드될 때 한 번만 실행되어 성능 향상
 _df_lotto_data = None
 _latest_draw_number = None
 _latest_draw_details = None
@@ -240,11 +281,13 @@ _consecutive_patterns = None
 _odd_even_ratios = None
 _sum_ranges = None
 _ending_digit_patterns = None
+_kmeans_model = None # K-means 모델 전역 변수 추가
 
 def _initialize_global_data():
     global _df_lotto_data, _latest_draw_number, _latest_draw_details, \
            _frequency_data, _gap_data, _consecutive_patterns, \
-           _odd_even_ratios, _sum_ranges, _ending_digit_patterns
+           _odd_even_ratios, _sum_ranges, _ending_digit_patterns, \
+           _kmeans_model
 
     if _df_lotto_data is None: # 이미 초기화되었으면 다시 하지 않음
         print("Initializing global data for Cloud Function...")
@@ -282,6 +325,11 @@ def _initialize_global_data():
             
             _frequency_data = calc_frequency(df_lotto_for_calc)
             _gap_data = calc_gap(_df_lotto_data)
+
+            # K-means 모델 학습 및 저장
+            # 클러스터 개수는 데이터 특성이나 실험을 통해 최적값 결정 필요
+            # 여기서는 임시로 5개 클러스터 사용
+            _kmeans_model = train_kmeans_model(_df_lotto_data, n_clusters=5) 
             
             print("Global data initialization complete.")
 
@@ -303,27 +351,38 @@ def get_lotto_numbers(request):
     if request.method == 'OPTIONS':
         return ('', 204, headers)
 
-    # 함수 호출 시마다 전역 데이터 초기화 시도
     _initialize_global_data()
 
     try:
-        # 전역 변수에 데이터가 로드되지 않았다면 오류 반환
         if _df_lotto_data is None or _df_lotto_data.empty:
             return (json.dumps({"error": "Lotto data not initialized or is empty."}), 500, headers)
 
-        # 전역 변수에서 필요한 데이터 사용
-        recommended_numbers = generate_numbers_stat(
-            _frequency_data, 
-            _gap_data, 
-            _consecutive_patterns, 
-            _odd_even_ratios, 
-            _sum_ranges, 
-            _ending_digit_patterns
-        )
+        # 요청 쿼리 파라미터에서 모델 타입 확인
+        model_type = request.args.get('model_type', 'statistical') # 기본값은 'statistical'
+
+        recommended_numbers = []
+        if model_type == 'statistical':
+            recommended_numbers = generate_numbers_stat(
+                _frequency_data, 
+                _gap_data, 
+                _consecutive_patterns, 
+                _odd_even_ratios, 
+                _sum_ranges, 
+                _ending_digit_patterns
+            )
+            message = "통계 기반 로또 추천 번호입니다!"
+        elif model_type == 'kmeans':
+            if _kmeans_model is None:
+                 return (json.dumps({"error": "K-means model not initialized."}), 500, headers)
+            recommended_numbers = generate_numbers_kmeans(_kmeans_model)
+            message = "K-means 기반 로또 추천 번호입니다!"
+        else:
+            return (json.dumps({"error": f"Invalid model_type: {model_type}"}), 400, headers)
+
 
         response_data = {
             "lotto_numbers": recommended_numbers,
-            "message": "로또 추천 번호입니다!",
+            "message": message,
             "latest_draw_number": _latest_draw_number,
             "latest_draw_details": _latest_draw_details
         }
@@ -341,12 +400,12 @@ def get_lotto_numbers(request):
 
 # --- 로컬 테스트를 위한 코드 ---
 if __name__ == '__main__':
-    print("\n--- 로컬에서 get_lotto_numbers 함수 테스트 ---")
+    print("\n--- 로컬에서 get_lotto_numbers 함수 테스트 (Statistical) ---")
     class MockRequest:
-        def __init__(self, method='GET'):
+        def __init__(self, method='GET', args=None):
             self.method = method
             self._json_data = None
-            self._args = {}
+            self._args = args if args is not None else {}
 
         def get_json(self, silent=True):
             return self._json_data
@@ -355,27 +414,25 @@ if __name__ == '__main__':
         def args(self):
             return self._args
 
-    mock_request = MockRequest()
-    response_body, status_code, response_headers = get_lotto_numbers(mock_request)
+    # 통계 모델 테스트
+    mock_request_stat = MockRequest(args={'model_type': 'statistical'})
+    response_body_stat, status_code_stat, response_headers_stat = get_lotto_numbers(mock_request_stat)
+    print(f"Status Code (Statistical): {status_code_stat}")
+    print(f"Body (Statistical): {response_body_stat}")
 
-    print(f"Status Code: {status_code}")
-    print(f"Headers: {response_headers}")
-    print(f"Body: {response_body}")
+    print("\n--- 로컬에서 get_lotto_numbers 함수 테스트 (K-means) ---")
+    # K-means 모델 테스트
+    mock_request_kmeans = MockRequest(args={'model_type': 'kmeans'})
+    response_body_kmeans, status_code_kmeans, response_headers_kmeans = get_lotto_numbers(mock_request_kmeans)
+    print(f"Status Code (K-means): {status_code_kmeans}")
+    print(f"Body (K-means): {response_body_kmeans}")
 
     try:
-        parsed_response = json.loads(response_body)
-        if "lotto_numbers" in parsed_response:
-            print(f"추천 로또 번호: {parsed_response['lotto_numbers']}")
-            if "latest_draw_number" in parsed_response:
-                print(f"최신 회차: {parsed_response['latest_draw_number']}")
-            if "latest_draw_details" in parsed_response:
-                details = parsed_response["latest_draw_details"]
-                print(f"  당첨 번호: {details['winning_numbers']} + 보너스 {details['bonus_number']}")
-                for rank, prize in details['prizes'].items():
-                    print(f"  {rank} 당첨금: {prize}원")
-        elif "error" in parsed_response:
-            print(f"오류: {parsed_response['error']}")
+        if status_code_kmeans == 200:
+            parsed_kmeans_response = json.loads(response_body_kmeans)
+            if "lotto_numbers" in parsed_kmeans_response:
+                print(f"K-means 추천 로또 번호: {parsed_kmeans_response['lotto_numbers']}")
     except json.JSONDecodeError:
-        print("응답 바디가 JSON 형식이 아닙니다.")
+        print("K-means 응답 바디가 JSON 형식이 아닙니다.")
     except Exception as e:
-        print(f"응답 파싱 중 오류 발생: {e}")
+        print(f"K-means 응답 파싱 중 오류 발생: {e}")
