@@ -68,31 +68,39 @@ def calc_gap(df_lotto_original):
         gap_data[num] = gap
     return gap_data
 
-# --- 통계 패턴 분석 함수들 ---
+# --- 통계 패턴 분석 함수들 (이전과 동일) ---
 def analyze_consecutive_patterns(df_lotto_original):
-    consecutive_counts = {2: 0, 3: 0, 4: 0, 5: 0} 
+    consecutive_counts = {2: 0, 3: 0, 4: 0, 5: 0} # 2개, 3개, 4개, 5개 연속 번호
     total_draws = len(df_lotto_original)
 
     for i in range(total_draws):
         draw_numbers = sorted([int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()])
+        
         current_consecutive = 1
         max_consecutive = 1
+        
         for j in range(len(draw_numbers) - 1):
             if draw_numbers[j+1] == draw_numbers[j] + 1:
                 current_consecutive += 1
             else:
                 max_consecutive = max(max_consecutive, current_consecutive)
                 current_consecutive = 1
-        max_consecutive = max(max_consecutive, current_consecutive) 
-        if max_consecutive >= 2: consecutive_counts[2] += 1
-        if max_consecutive >= 3: consecutive_counts[3] += 1
-        if max_consecutive >= 4: consecutive_counts[4] += 1
-        if max_consecutive >= 5: consecutive_counts[5] += 1
+        max_consecutive = max(max_consecutive, current_consecutive) # 마지막 연속 번호 처리
+
+        if max_consecutive >= 2:
+            consecutive_counts[2] += 1
+        if max_consecutive >= 3:
+            consecutive_counts[3] += 1
+        if max_consecutive >= 4:
+            consecutive_counts[4] += 1
+        if max_consecutive >= 5:
+            consecutive_counts[5] += 1
             
+    # 각 연속 번호 패턴이 총 추첨에서 나타난 비율을 반환 (0으로 나누는 것 방지)
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in consecutive_counts.items()}
 
 def analyze_odd_even_ratios(df_lotto_original):
-    odd_even_counts = Counter() 
+    odd_even_counts = Counter() # (홀수 개수, 짝수 개수) 튜플
     total_draws = len(df_lotto_original)
 
     for i in range(total_draws):
@@ -101,12 +109,14 @@ def analyze_odd_even_ratios(df_lotto_original):
         even_count = 6 - odd_count
         odd_even_counts[(odd_count, even_count)] += 1
     
+    # 각 비율이 나타난 빈도를 백분율로 반환
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in odd_even_counts.items()}
 
 def analyze_sum_ranges(df_lotto_original):
     sum_ranges = Counter()
     total_draws = len(df_lotto_original)
     
+    # 일반적으로 사용되는 로또 합계 범위 (조정 가능)
     ranges = [
         (21, 50), (51, 80), (81, 110), (111, 140), (141, 170), (171, 200), (201, 231)
     ]
@@ -121,7 +131,7 @@ def analyze_sum_ranges(df_lotto_original):
                 sum_ranges[f'{r_min}~{r_max}'] += 1
                 found_range = True
                 break
-        if not found_range:
+        if not found_range: # 정의된 범위 밖에 있는 경우
             sum_ranges['Other'] += 1
             
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in sum_ranges.items()}
@@ -132,124 +142,136 @@ def analyze_ending_digit_patterns(df_lotto_original):
 
     for i in range(total_draws):
         draw_numbers = [int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()]
-        digits = [num % 10 for num in draw_numbers] 
-        ending_digit_counts[tuple(sorted(digits))] += 1 
+        digits = [num % 10 for num in draw_numbers] # 끝자리 추출
+        ending_digit_counts[tuple(sorted(digits))] += 1 # 정렬된 튜플로 패턴 저장
     
+    # 각 끝자리 패턴이 나타난 빈도를 백분율로 반환
     return {k: v / total_draws if total_draws > 0 else 0 for k, v in ending_digit_counts.items()}
 
 
 # --- 추천 번호 생성 함수 (고도화 통계 모델) ---
-def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_even_ratios, sum_ranges, ending_digit_patterns, all_past_draw_details, num_to_generate=6):
-    # all_past_draw_details는 (winning_numbers, bonus_number) 튜플 리스트
-    recommended_numbers_set = set()
+def generate_numbers_stat(frequency_data, gap_data, consecutive_patterns, odd_even_ratios, sum_ranges, ending_digit_patterns, num_to_generate=6):
+    recommended_numbers = set()
     number_scores = {}
     
     for num in range(1, 46):
         freq = frequency_data.get(num, 0)
         gap = gap_data.get(num, 0)
-        score = freq + (gap * 2) 
+        score = freq + (gap * 2) # 기존 점수 계산
         number_scores[num] = score
     
     sorted_numbers_by_score = sorted(number_scores.items(), key=lambda item: item[1], reverse=True)
     top_candidates = [num for num, score in sorted_numbers_by_score[:20]] 
 
-    while len(recommended_numbers_set) < num_to_generate:
+    # Note: Pattern considerations are currently implemented as a general guideline
+    # for selecting numbers from top_candidates, rather than a strict filter for every single generated set.
+    # The final scoring of pattern adherence is for informational purposes or further refinement.
+    
+    while len(recommended_numbers) < num_to_generate:
         if not top_candidates:
-            remaining_numbers = list(set(range(1, 46)) - recommended_numbers_set)
+            remaining_numbers = list(set(range(1, 46)) - recommended_numbers)
             if not remaining_numbers: break
             chosen = random.choice(remaining_numbers)
         else:
             chosen = random.choice(top_candidates)
-            top_candidates.remove(chosen) 
+            top_candidates.remove(chosen) # 중복 선택 방지
 
-        recommended_numbers_set.add(chosen)
+        recommended_numbers.add(chosen)
         
-    final_numbers = sorted(list(recommended_numbers_set))
-    
-    # 생성된 번호의 과거 적중률 계산
-    historical_hit_rates = calculate_historical_matches(final_numbers, all_past_draw_details)
+    final_numbers = sorted(list(recommended_numbers))
 
-    return {"numbers": final_numbers, "historical_hit_rates": historical_hit_rates}
+    # --- 최종 추천 조합의 패턴 점수 계산 (새로 추가) ---
+    # 이 부분은 생성된 조합이 얼마나 '좋은' 패턴을 가지고 있는지 평가하는 용도
+    # 번호 선택 로직에 직접 반영하기는 어려우므로, 참고용 점수로 활용
+
+    # 홀짝 비율 점수
+    odd_count = sum(1 for num in final_numbers if num % 2 != 0)
+    even_count = 6 - odd_count
+    odd_even_score = 0
+    if (odd_count, even_count) in [(3,3), (4,2), (2,4)]: # 가장 흔한 비율
+        odd_even_score += 10 # 높은 점수
+    
+    # 번호 합계 점수
+    current_sum = sum(final_numbers)
+    sum_score = 0
+    if (current_sum >= 80 and current_sum <= 150): # 목표 합계 범위 내 (80-150)
+        sum_score += 10
+
+    # 연속 번호 점수
+    current_consecutive = 1
+    max_consecutive = 1
+    sorted_final_numbers = sorted(final_numbers)
+    for j in range(len(sorted_final_numbers) - 1):
+        if sorted_final_numbers[j+1] == sorted_final_numbers[j] + 1:
+            current_consecutive += 1
+        else:
+            max_consecutive = max(max_consecutive, current_consecutive)
+            current_consecutive = 1
+    max_consecutive = max(max_consecutive, current_consecutive)
+    consecutive_score = 0
+    if max_consecutive <= 2: # 목표 연속 번호 개수 이하 (0~2개 연속)
+        consecutive_score += 10
+
+    # 이 패턴 점수들을 어떻게 활용할지는 결정 필요 (예: 다시 뽑기, 사용자에게 정보 제공 등)
+    # 현재는 번호 선택에 직접 반영하지 않고, 로직에 대한 이해를 돕기 위해 추가
+
+    return final_numbers
 
 
 # --- 새로운 K-means 모델 관련 함수 ---
 def train_kmeans_model(df_lotto_original, n_clusters=5):
+    # 로또 번호 6개 컬럼만 선택하여 학습 데이터 준비
+    # 번호의 스케일을 조정 (예: Min-Max Scaling)하면 K-means 성능 향상에 도움이 될 수 있음
+    # 여기서는 간단하게 번호 자체를 사용
     lotto_numbers_data = df_lotto_original.iloc[:, 1:7].values.astype(int)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    
+    # KMeans 모델 학습
+    # random_state를 고정하여 결과의 재현성 확보
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10) # n_init 추가
     kmeans.fit(lotto_numbers_data)
     return kmeans
 
-def generate_numbers_kmeans(kmeans_model, all_past_draw_details, num_to_generate=6):
+def generate_numbers_kmeans(kmeans_model, num_to_generate=6):
+    # 학습된 클러스터 중심(centroids) 중 하나를 선택
+    # 가장 가까운 정수로 반올림하여 로또 번호로 사용
+    # 중복 및 1-45 범위 벗어나는 경우 처리 필요
+
+    # 클러스터 중심 (실수 형태)
     centroids = kmeans_model.cluster_centers_
+
     recommended_numbers_set = set()
     attempts = 0
-    max_attempts = 100 
+    max_attempts = 100 # 무한 루프 방지
 
     while len(recommended_numbers_set) < num_to_generate and attempts < max_attempts:
+        # 무작위로 클러스터 중심 하나를 선택
         selected_centroid = centroids[random.randint(0, len(centroids) - 1)]
         
+        # 중심 값을 반올림하여 로또 번호로 변환
+        # 번호 범위 (1-45) 및 중복 처리
         candidate_numbers = sorted(list(set(
             max(1, min(45, int(round(num)))) for num in selected_centroid
         )))
         
+        # 6개의 고유한 번호가 생성되었는지 확인
         if len(candidate_numbers) >= num_to_generate:
+            # 원하는 개수만큼 번호 선택
+            # random.sample은 중복 없이 선택
             for num in random.sample(candidate_numbers, num_to_generate):
                 recommended_numbers_set.add(num)
         
         attempts += 1
     
+    # 마지막까지 6개를 채우지 못했으면, 부족한 만큼 랜덤 번호 추가
     while len(recommended_numbers_set) < num_to_generate:
         new_num = random.randint(1, 45)
         recommended_numbers_set.add(new_num)
 
-    final_numbers = sorted(list(recommended_numbers_set))
-
-    # 생성된 번호의 과거 적중률 계산
-    historical_hit_rates = calculate_historical_matches(final_numbers, all_past_draw_details)
-
-    return {"numbers": final_numbers, "historical_hit_rates": historical_hit_rates}
-
-
-# --- 새로운: 과거 적중률 계산 함수 ---
-def calculate_historical_matches(recommended_set, all_past_draw_details):
-    # recommended_set: 6개의 추천 번호 (정렬된 리스트)
-    # all_past_draw_details: 각 회차별 (당첨번호 6개 리스트, 보너스번호) 튜플의 리스트
-    
-    hit_counts = {
-        "1st": 0,  # 6개 일치
-        "2nd": 0,  # 5개 일치 + 보너스 번호 일치
-        "3rd": 0,  # 5개 일치
-        "4th": 0,  # 4개 일치
-        "5th": 0   # 3개 일치
-    }
-
-    recommended_set_set = set(recommended_set) # 효율적인 비교를 위해 set으로 변환
-
-    for winning_nums, bonus_num in all_past_draw_details:
-        winning_nums_set = set(winning_nums)
-        
-        # 교집합 (일치하는 번호 개수) 계산
-        matching_numbers = recommended_set_set.intersection(winning_nums_set)
-        match_count = len(matching_numbers)
-
-        if match_count == 6:
-            hit_counts["1st"] += 1
-        elif match_count == 5:
-            # 5개 일치 후, 추천 번호 중 남은 1개가 보너스 번호와 일치하는지 확인 (2등 조건)
-            remaining_recommended_nums = recommended_set_set - matching_numbers
-            if bonus_num in remaining_recommended_nums:
-                hit_counts["2nd"] += 1
-            else:
-                hit_counts["3rd"] += 1
-        elif match_count == 4:
-            hit_counts["4th"] += 1
-        elif match_count == 3:
-            hit_counts["5th"] += 1
-            
-    return hit_counts
+    return sorted(list(recommended_numbers_set))
 
 
 # --- 전역 변수 초기화 (콜드 스타트 시 한 번만 실행) ---
+# Cloud Functions 인스턴스가 로드될 때 한 번만 실행되어 성능 향상
 _df_lotto_data = None
 _latest_draw_number = None
 _latest_draw_details = None
@@ -259,16 +281,15 @@ _consecutive_patterns = None
 _odd_even_ratios = None
 _sum_ranges = None
 _ending_digit_patterns = None
-_kmeans_model = None 
-_all_past_draw_details = [] # 모든 과거 당첨 번호와 보너스 번호를 저장할 리스트 추가
+_kmeans_model = None # K-means 모델 전역 변수 추가
 
 def _initialize_global_data():
     global _df_lotto_data, _latest_draw_number, _latest_draw_details, \
            _frequency_data, _gap_data, _consecutive_patterns, \
            _odd_even_ratios, _sum_ranges, _ending_digit_patterns, \
-           _kmeans_model, _all_past_draw_details
+           _kmeans_model
 
-    if _df_lotto_data is None: 
+    if _df_lotto_data is None: # 이미 초기화되었으면 다시 하지 않음
         print("Initializing global data for Cloud Function...")
         try:
             _df_lotto_data = load_lotto_data()
@@ -305,26 +326,17 @@ def _initialize_global_data():
             _frequency_data = calc_frequency(df_lotto_for_calc)
             _gap_data = calc_gap(_df_lotto_data)
 
-            # 모든 과거 당첨 번호와 보너스 번호를 _all_past_draw_details에 저장
-            # (winning_numbers_list, bonus_number) 튜플 형태로
-            _all_past_draw_details = []
-            for i in range(len(_df_lotto_data)):
-                try:
-                    win_nums = [int(n) for n in _df_lotto_data.iloc[i, 1:7].tolist()]
-                    bon_num = int(_df_lotto_data.iloc[i, 7])
-                    _all_past_draw_details.append((win_nums, bon_num))
-                except ValueError:
-                    print(f"Skipping row {i} due to non-numeric lotto numbers.")
-                    continue
-
             # K-means 모델 학습 및 저장
+            # 클러스터 개수는 데이터 특성이나 실험을 통해 최적값 결정 필요
+            # 여기서는 임시로 5개 클러스터 사용
             _kmeans_model = train_kmeans_model(_df_lotto_data, n_clusters=5) 
             
             print("Global data initialization complete.")
 
         except Exception as e:
             print(f"Error during global data initialization: {e}")
-            _df_lotto_data = pd.DataFrame() 
+            # 초기화 실패 시, 함수 호출에서 오류를 반환하도록 처리
+            _df_lotto_data = pd.DataFrame() # 빈 데이터프레임으로 설정하여 이후 요청에서 오류 발생 유도
 
 
 # --- Cloud Functions 진입점 ---
@@ -345,39 +357,31 @@ def get_lotto_numbers(request):
         if _df_lotto_data is None or _df_lotto_data.empty:
             return (json.dumps({"error": "Lotto data not initialized or is empty."}), 500, headers)
 
-        model_type = request.args.get('model_type', 'statistical') 
+        # 요청 쿼리 파라미터에서 모델 타입 확인
+        model_type = request.args.get('model_type', 'statistical') # 기본값은 'statistical'
 
-        recommended_lotto_sets_with_details = []
-        num_sets_to_generate = int(request.args.get('num_sets', 1)) # 프론트엔드에서 num_sets를 받을 수도 있음
-
-        for _ in range(num_sets_to_generate):
-            if model_type == 'statistical':
-                recommended_set_data = generate_numbers_stat(
-                    _frequency_data, 
-                    _gap_data, 
-                    _consecutive_patterns, 
-                    _odd_even_ratios, 
-                    _sum_ranges, 
-                    _ending_digit_patterns,
-                    _all_past_draw_details # 과거 당첨 기록 데이터 전달
-                )
-                message = "Statistical Lotto Recommendation!" # 영어 메시지
-            elif model_type == 'kmeans':
-                if _kmeans_model is None:
-                    return (json.dumps({"error": "K-means model not initialized."}), 500, headers)
-                recommended_set_data = generate_numbers_kmeans(
-                    _kmeans_model,
-                    _all_past_draw_details # 과거 당첨 기록 데이터 전달
-                )
-                message = "ML-based Lotto Recommendation!" # 영어 메시지
-            else:
-                return (json.dumps({"error": f"Invalid model_type: {model_type}"}), 400, headers)
-            
-            recommended_lotto_sets_with_details.append(recommended_set_data)
+        recommended_numbers = []
+        if model_type == 'statistical':
+            recommended_numbers = generate_numbers_stat(
+                _frequency_data, 
+                _gap_data, 
+                _consecutive_patterns, 
+                _odd_even_ratios, 
+                _sum_ranges, 
+                _ending_digit_patterns
+            )
+            message = "통계 기반 로또 추천 번호입니다!"
+        elif model_type == 'kmeans':
+            if _kmeans_model is None:
+                 return (json.dumps({"error": "K-means model not initialized."}), 500, headers)
+            recommended_numbers = generate_numbers_kmeans(_kmeans_model)
+            message = "K-means 기반 로또 추천 번호입니다!"
+        else:
+            return (json.dumps({"error": f"Invalid model_type: {model_type}"}), 400, headers)
 
 
         response_data = {
-            "lotto_numbers": recommended_lotto_sets_with_details, # 이제 객체 배열
+            "lotto_numbers": recommended_numbers,
             "message": message,
             "latest_draw_number": _latest_draw_number,
             "latest_draw_details": _latest_draw_details
@@ -391,11 +395,12 @@ def get_lotto_numbers(request):
     except ValueError as e:
         return (json.dumps({"error": f"Data conversion error, check lotto.csv content for non-numeric values or missing data: {str(e)}"}), 500, headers)
     except Exception as e:
+        # 예상치 못한 다른 오류 발생 시, 초기화 오류도 포함될 수 있음
         return (json.dumps({"error": f"An unexpected error occurred: {str(e)}"}), 500, headers)
 
 # --- 로컬 테스트를 위한 코드 ---
 if __name__ == '__main__':
-    print("\n--- Local Test of get_lotto_numbers function ---")
+    print("\n--- 로컬에서 get_lotto_numbers 함수 테스트 (Statistical) ---")
     class MockRequest:
         def __init__(self, method='GET', args=None):
             self.method = method
@@ -409,32 +414,25 @@ if __name__ == '__main__':
         def args(self):
             return self._args
 
-    # Test Statistical Model
-    print("\n--- Testing Statistical Model ---")
-    mock_request_stat = MockRequest(args={'model_type': 'statistical', 'num_sets': '2'})
+    # 통계 모델 테스트
+    mock_request_stat = MockRequest(args={'model_type': 'statistical'})
     response_body_stat, status_code_stat, response_headers_stat = get_lotto_numbers(mock_request_stat)
     print(f"Status Code (Statistical): {status_code_stat}")
     print(f"Body (Statistical): {response_body_stat}")
 
-    # Test K-means Model
-    print("\n--- Testing K-means Model ---")
-    mock_request_kmeans = MockRequest(args={'model_type': 'kmeans', 'num_sets': '1'})
+    print("\n--- 로컬에서 get_lotto_numbers 함수 테스트 (K-means) ---")
+    # K-means 모델 테스트
+    mock_request_kmeans = MockRequest(args={'model_type': 'kmeans'})
     response_body_kmeans, status_code_kmeans, response_headers_kmeans = get_lotto_numbers(mock_request_kmeans)
     print(f"Status Code (K-means): {status_code_kmeans}")
     print(f"Body (K-means): {response_body_kmeans}")
 
     try:
-        if status_code_stat == 200:
-            parsed_stat_response = json.loads(response_body_stat)
-            if parsed_stat_response["lotto_numbers"]:
-                print(f"Statistical Recommended Lotto Number 1: {parsed_stat_response['lotto_numbers'][0]['numbers']}")
-                print(f"  Historical Hit Rates: {parsed_stat_response['lotto_numbers'][0]['historical_hit_rates']}")
         if status_code_kmeans == 200:
             parsed_kmeans_response = json.loads(response_body_kmeans)
-            if parsed_kmeans_response["lotto_numbers"]:
-                print(f"K-means Recommended Lotto Number 1: {parsed_kmeans_response['lotto_numbers'][0]['numbers']}")
-                print(f"  Historical Hit Rates: {parsed_kmeans_response['lotto_numbers'][0]['historical_hit_rates']}")
+            if "lotto_numbers" in parsed_kmeans_response:
+                print(f"K-means 추천 로또 번호: {parsed_kmeans_response['lotto_numbers']}")
     except json.JSONDecodeError:
-        print("Response body is not valid JSON.")
+        print("K-means 응답 바디가 JSON 형식이 아닙니다.")
     except Exception as e:
-        print(f"Error parsing response: {e}")
+        print(f"K-means 응답 파싱 중 오류 발생: {e}")
