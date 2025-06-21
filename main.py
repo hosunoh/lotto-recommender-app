@@ -29,7 +29,7 @@ def calc_frequency(df_numbers):
     df_numbers_numeric = df_numbers.apply(pd.to_numeric, errors='coerce')
     all_numbers = df_numbers_numeric.values.flatten()
     all_numbers = all_numbers[~pd.isna(all_numbers)]
-    all_numbers = ㅃall_numbers.astype(int)
+    all_numbers = all_numbers.astype(int)
     frequency = Counter(all_numbers)
     return frequency
 
