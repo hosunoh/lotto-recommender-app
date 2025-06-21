@@ -188,8 +188,14 @@ async function generateLottoNumbers() {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`API Error: ${errorData.error || response.statusText}`);
+            let errorData = {};
+            try {
+                errorData = await response.json(); // Try to parse JSON error response
+            } catch (jsonError) {
+                // If not JSON, use the raw text
+                errorData.error = await response.text();
+            }
+            throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorData.error || 'Unknown error'}`);
         }
 
         const data = await response.json();
@@ -207,7 +213,7 @@ async function generateLottoNumbers() {
                         lottoSetData.historical_hit_rates
                     );
                 } else {
-                    console.error("Received malformed lotto set data:", lottoSetData);
+                    console.error("Received malformed lotto set data (expected object with 'numbers' array):", lottoSetData);
                     showMessage('Received invalid lotto number set from API. Please check console for details.', 'error');
                     hasError = true; // Mark as error to prevent success message
                 }
@@ -257,6 +263,7 @@ function displayLottoSet(numbers, setIndex, modelLabel, historicalHitRates) {
     if (historicalHitRates) {
         let hitRateText = "Historical Matches: ";
         const matches = [];
+        // Only add if count is greater than 0
         if (historicalHitRates["1st"] > 0) matches.push(`${historicalHitRates["1st"]} (1st)`);
         if (historicalHitRates["2nd"] > 0) matches.push(`${historicalHitRates["2nd"]} (2nd)`);
         if (historicalHitRates["3rd"] > 0) matches.push(`${historicalHitRates["3rd"]} (3rd)`);

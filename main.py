@@ -8,6 +8,11 @@ import numpy as np
 
 # --- 데이터 로드 함수 ---
 def load_lotto_data():
+    # Cloud Functions 환경에서는 lotto.csv가 함수 코드와 함께 배포될 것입니다.
+    # 따라서 함수가 실행되는 디렉토리에서 lotto.csv를 찾아야 합니다.
+    # 'data' 폴더 안에 있다면 'data/lotto.csv' 경로를 사용합니다.
+    # Colab에서 테스트할 때는 'lotto-recommender-app/data/lotto.csv' 경로를 사용합니다.
+
     if os.path.exists('data/lotto.csv'): 
         csv_path = 'data/lotto.csv'
     elif os.path.exists('lotto-recommender-app/data/lotto.csv'): 
@@ -20,36 +25,44 @@ def load_lotto_data():
 
 # --- 기존 통계 함수 ---
 def calc_frequency(df_numbers):
+    # df_numbers는 이미 로또 번호 6개 컬럼만 포함한다고 가정
     df_numbers_numeric = df_numbers.apply(pd.to_numeric, errors='coerce')
     all_numbers = df_numbers_numeric.values.flatten()
     all_numbers = all_numbers[~pd.isna(all_numbers)]
-    all_numbers = all_numbers.astype(int)
+    all_numbers = ㅃall_numbers.astype(int)
     frequency = Counter(all_numbers)
     return frequency
 
 def calc_gap(df_lotto_original):
-    if df_lotto_original.empty or len(df_lotto_original.columns) < 7:
+    # df_lotto_original은 회차 포함 전체 데이터프레임
+    # 로또 번호 컬럼은 인덱스 1부터 6까지
+    if df_lotto_original.empty or len(df_lotto_original.columns) < 7: # 최소 7개 컬럼 (회차 + 6개 번호) 확인
         raise ValueError("Lotto data format is incorrect for gap calculation.")
 
     gap_data = {}
     num_rows = len(df_lotto_original)
     
-    for num in range(1, 46):
-        found_at_draw_index = -1
-        for i in range(num_rows - 1, -1, -1):
+    # 각 번호(1~45)에 대해 간격 계산
+    for num in range(1, 46): # 로또 번호 범위 1~45
+        found_at_draw_index = -1 # 번호가 발견된 행 인덱스 (0부터 시작)
+
+        # 최신 회차 (마지막 행: num_rows - 1)부터 과거로 거슬러 올라가며 탐색
+        for i in range(num_rows - 1, -1, -1): # i는 num_rows-1 부터 0까지 역순으로
+            # 당첨 번호 컬럼: [1, 2, 3, 4, 5, 6]
             draw_numbers = df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()
             try:
                 draw_numbers = [int(n) for n in draw_numbers]
             except ValueError:
-                continue
+                continue # 숫자로 변환할 수 없는 값은 건너김
             if num in draw_numbers:
                 found_at_draw_index = i
-                break
+                break # 찾으면 가장 최근 출현 회차이므로 중단
         
+        # 간격 계산: (가장 최신 회차의 인덱스) - (발견된 회차의 인덱스)
         if found_at_draw_index != -1:
             gap = (num_rows - 1) - found_at_draw_index 
         else:
-            gap = num_rows
+            gap = num_rows # 전체 회차 동안 나오지 않았으면 전체 길이(총 회차 수)를 간격으로 설정
         gap_data[num] = gap
     return gap_data
 
@@ -60,10 +73,8 @@ def analyze_consecutive_patterns(df_lotto_original):
 
     for i in range(total_draws):
         draw_numbers = sorted([int(n) for n in df_lotto_original.iloc[i, [1, 2, 3, 4, 5, 6]].tolist()])
-        
         current_consecutive = 1
         max_consecutive = 1
-        
         for j in range(len(draw_numbers) - 1):
             if draw_numbers[j+1] == draw_numbers[j] + 1:
                 current_consecutive += 1
@@ -423,4 +434,3 @@ if __name__ == '__main__':
         print("Response body is not valid JSON.")
     except Exception as e:
         print(f"Error parsing response: {e}")
-"# Forced update to trigger Cloud Build" 
