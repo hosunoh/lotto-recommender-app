@@ -6,29 +6,29 @@ const numSetsSelect = document.getElementById('numSets');
 const lottoNumbersDisplay = document.getElementById('lottoNumbersDisplay');
 const messageElement = document.getElementById('message');
 
-// 날짜 정보 표시할 요소들
+// Elements for displaying date information
 const latestDrawNumSpan = document.getElementById('latestDrawNum');
 const nextDrawDateSpan = document.getElementById('nextDrawDate');
 const nextDrawNumSpan = document.getElementById('nextDrawNum');
 
-// 최신 당첨 내용 관련 요소
+// Elements for latest draw details
 const viewDrawDetailsBtn = document.getElementById('viewDrawDetails');
 const latestDrawDetailsSection = document.getElementById('latestDrawDetailsSection');
 const displayedDrawNumSpan = document.getElementById('displayedDrawNum');
 const hideDrawDetailsBtn = document.getElementById('hideDrawDetails');
 
-// 모델 선택 탭 버튼 요소
+// Model selection tab buttons
 const statisticalTabBtn = document.getElementById('statisticalTabBtn');
 const mlTabBtn = document.getElementById('mlTabBtn');
-const tabButtons = document.querySelectorAll('.tab-button'); // 모든 탭 버튼 선택
+const tabButtons = document.querySelectorAll('.tab-button'); // Select all tab buttons
 
-let currentModelType = 'statistical'; // 현재 선택된 모델 타입 (기본값: 통계 기반)
-let cachedLatestDrawDetails = null; // API에서 가져온 최신 당첨 상세 정보를 저장할 변수
+let currentModelType = 'statistical'; // Currently selected model type (default: statistical)
+let cachedLatestDrawDetails = null; // Variable to store latest draw details from API
 
-// --- 초기화 함수: 페이지 로드 시 날짜 정보 계산 및 표시 ---
+// --- Initialization Function: Calculates and displays date info on page load ---
 function initializeApp() {
-    displayNextDrawDateAndNumber(); // 다음 추첨일 및 회차 계산 및 표시
-    // 초기 로드 시 active 탭 설정 (통계 기반이 기본이므로)
+    displayNextDrawDateAndNumber(); // Calculate and display next draw date and number
+    // Set active tab on initial load (statistical is default)
     tabButtons.forEach(button => {
         if (button.dataset.modelType === currentModelType) {
             button.classList.add('active');
@@ -38,17 +38,17 @@ function initializeApp() {
     });
 }
 
-// --- 다음 로또 추첨일 및 회차 계산 함수 ---
+// --- Function to calculate and display the next lotto draw date and number ---
 async function displayNextDrawDateAndNumber() {
     const today = new Date();
-    const currentDayOfWeek = today.getDay(); // 0(일요일) ~ 6(토요일)
+    const currentDayOfWeek = today.getDay(); // 0 (Sunday) to 6 (Saturday)
 
     let daysUntilSaturday;
-    if (currentDayOfWeek === 6) { // 오늘이 토요일이면, 다음 토요일은 7일 후 (같은 요일)
+    if (currentDayOfWeek === 6) { // If today is Saturday, next Saturday is 7 days later
         daysUntilSaturday = 7;
-    } else { // 오늘이 토요일이 아니면, 다음 토요일까지 남은 일수 계산
+    } else { // If today is not Saturday, calculate remaining days until next Saturday
         daysUntilSaturday = (6 - currentDayOfWeek + 7) % 7;
-        if (daysUntilSaturday === 0) { // 만약 계산상 0일이 나오면 (이미 토요일인데, getDay()는 6이므로 이 조건은 안 타야 함), 다음 주 토요일로
+        if (daysUntilSaturday === 0) { // If calculated as 0 days (e.g., already past Saturday), set to next week's Saturday
             daysUntilSaturday = 7;
         }
     }
@@ -59,49 +59,48 @@ async function displayNextDrawDateAndNumber() {
     const year = nextSaturday.getFullYear();
     const month = nextSaturday.getMonth() + 1;
     const day = nextSaturday.getDate();
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; // English day names
     const dayOfWeek = dayNames[nextSaturday.getDay()];
 
-    nextDrawDateSpan.textContent = `${year}년 ${month}월 ${day}일 (${dayOfWeek})`;
+    nextDrawDateSpan.textContent = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} (${dayOfWeek})`;
 
-    // 최신 회차를 가져와서 다음 회차 계산 (API 호출을 통해)
+    // Fetch latest draw number to calculate next draw number
     try {
         console.log("Fetching latest draw number and details from API...");
-        // API URL에 model_type 파라미터가 필요 없으므로 제거
         const response = await fetch(CLOUD_FUNCTION_URL, { method: 'GET' });
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API 오류: ${response.status} ${response.statusText} - ${errorText}`);
+            throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
         console.log("API response for latest draw number and details:", data);
 
         if (data.latest_draw_number !== undefined) {
-            latestDrawNumSpan.textContent = `${data.latest_draw_number}회`;
-            nextDrawNumSpan.textContent = `${data.latest_draw_number + 1}회`;
+            latestDrawNumSpan.textContent = `${data.latest_draw_number}th`; // Suffix changed to English
+            nextDrawNumSpan.textContent = `${data.latest_draw_number + 1}th`; // Suffix changed to English
             cachedLatestDrawDetails = data.latest_draw_details;
         } else {
-            console.warn("API 응답에 'latest_draw_number' 필드가 없습니다.", data);
-            latestDrawNumSpan.textContent = '정보 없음';
-            nextDrawNumSpan.textContent = '계산 불가';
+            console.warn("API response missing 'latest_draw_number' field.", data);
+            latestDrawNumSpan.textContent = 'N/A'; // N/A for Not Available
+            nextDrawNumSpan.textContent = 'N/A';
         }
     } catch (error) {
-        console.error("최신 회차 정보 로딩 오류:", error);
-        latestDrawNumSpan.textContent = '오류 발생';
-        nextDrawNumSpan.textContent = '오류 발생';
+        console.error("Error loading latest draw info:", error);
+        latestDrawNumSpan.textContent = 'Error';
+        nextDrawNumSpan.textContent = 'Error';
     }
 }
 
-// --- 최신 당첨 내용 표시 함수 ---
+// --- Function to display latest draw details ---
 function displayLatestDrawDetails() {
     if (!cachedLatestDrawDetails) {
-        showMessage('최신 당첨 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.', 'warning');
+        showMessage('Failed to load latest draw information. Please try again later.', 'warning');
         return;
     }
 
-    displayedDrawNumSpan.textContent = latestDrawNumSpan.textContent.replace('회', '');
+    displayedDrawNumSpan.textContent = latestDrawNumSpan.textContent.replace('th', ''); // Remove 'th' suffix for display
 
     const details = cachedLatestDrawDetails;
     const mainNumbersDiv = latestDrawDetailsSection.querySelector('.main-numbers');
@@ -120,17 +119,17 @@ function displayLatestDrawDetails() {
     const prizeInfoGrid = latestDrawDetailsSection.querySelector('.prize-info-grid');
     prizeInfoGrid.innerHTML = '';
 
-    const rankNames = {
-        "1st": "1등", "2nd": "2등", "3rd": "3등", "4th": "4등", "5th": "5등"
+    const rankNames = { // English rank names
+        "1st": "1st Prize", "2nd": "2nd Prize", "3rd": "3rd Prize", "4th": "4th Prize", "5th": "5th Prize"
     };
 
-    // 등수별 당첨금을 통화 형식으로 포맷
+    // Format prize amounts as currency
     for (const rank in details.prizes) {
         if (details.prizes.hasOwnProperty(rank) && details.prizes[rank] !== null) {
             const prizeItem = document.createElement('div');
             prizeItem.classList.add('prize-item');
-            const formattedPrize = details.prizes[rank].toLocaleString('ko-KR'); // 한국 통화 형식
-            prizeItem.innerHTML = `<span>${rankNames[rank]}</span> <span>${formattedPrize}원</span>`;
+            const formattedPrize = details.prizes[rank].toLocaleString('en-US', { style: 'currency', currency: 'KRW' }); // Format as Korean Won currency
+            prizeItem.innerHTML = `<span>${rankNames[rank]}</span> <span>${formattedPrize}</span>`;
             prizeInfoGrid.appendChild(prizeItem);
         }
     }
@@ -138,107 +137,107 @@ function displayLatestDrawDetails() {
     latestDrawDetailsSection.classList.remove('hidden');
 }
 
-// --- 모델 타입 전환 핸들러 ---
+// --- Model type switch handler ---
 function switchModelType(event) {
     const selectedButton = event.target;
     currentModelType = selectedButton.dataset.modelType;
 
-    // 모든 탭 버튼의 active 클래스 제거
+    // Remove active class from all tab buttons
     tabButtons.forEach(button => button.classList.remove('active'));
-    // 클릭된 버튼에 active 클래스 추가
+    // Add active class to the clicked button
     selectedButton.classList.add('active');
 
-    // 메시지 초기화 (새로운 추천 시작 전) - 번호는 사라지지 않고 유지
+    // Reset message (before starting new recommendation) - numbers remain visible
     showMessage('', 'hidden');
-    // lottoNumbersDisplay.innerHTML = ''; // 이 줄을 주석 처리하거나 삭제하여 기존 번호를 유지
+    // lottoNumbersDisplay.innerHTML = ''; // Keep this commented to append numbers
 
     console.log(`Model type switched to: ${currentModelType}`);
 
-    // "몇 세트 선택"을 1세트로 리셋
+    // Reset "How many sets" selection to 1
     numSetsSelect.value = "1";
 }
 
 
-// --- 로또 번호 생성 함수 (모델 타입에 따라 API 호출 변경) ---
+// --- Lotto number generation function (API call changes based on model type) ---
 async function generateLottoNumbers() {
     const numSets = parseInt(numSetsSelect.value);
-    // lottoNumbersDisplay.innerHTML = ''; // 이 줄을 주석 처리하거나 삭제하여 기존 번호를 유지
     messageElement.classList.add('hidden');
 
-    showMessage('로또 번호 생성 중입니다...', 'info');
-    // 기존 번호 위에 스피너가 나타나지 않도록 수정: spinner는 임시로 추가하지 않거나 다른 방식으로 표시
-    // lottoNumbersDisplay.innerHTML = '<div class="spinner"></div>'; // 이 줄은 제거하거나, 더 나은 로딩 인디케이터로 대체
+    showMessage('Generating lotto numbers...', 'info');
 
-    const recommendedSets = [];
+    const recommendedSets = []; // This will store the final sets for display
     let hasError = false;
 
-    // 현재 선택된 모델 타입에 따라 번호 추천 메시지 결정
-    const modelLabel = currentModelType === 'statistical' ? '통계 기반 추천 번호' : 'ML 기반 추천 번호';
+    // Determine the model label for the generated numbers
+    const modelLabel = currentModelType === 'statistical' ? 'Statistical Recommendation Numbers' : 'ML-based Recommendation Numbers';
 
-    // 로딩 스피너를 모든 번호가 생성될 때까지 표시
+    // Add a single loading spinner for the entire generation process
     const spinnerDiv = document.createElement('div');
     spinnerDiv.classList.add('spinner');
-    lottoNumbersDisplay.appendChild(spinnerDiv);
+    lottoNumbersDisplay.appendChild(spinnerDiv); // Append spinner to the display area
 
+    try {
+        // Make one API call to generate all requested sets
+        // Pass num_sets as a query parameter to the backend
+        const apiUrl = `${CLOUD_FUNCTION_URL}?model_type=${currentModelType}&num_sets=${numSets}`;
+        console.log(`Calling API: ${apiUrl}`);
 
-    for (let i = 0; i < numSets; i++) {
-        try {
-            // 모델 타입 쿼리 파라미터 추가
-            const apiUrl = `${CLOUD_FUNCTION_URL}?model_type=${currentModelType}`;
-            console.log(`Calling API: ${apiUrl}`);
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+        });
 
-            const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API 오류: ${errorData.error || response.statusText}`);
-            }
-
-            const data = await response.json();
-            if (data.lotto_numbers && Array.isArray(data.lotto_numbers)) {
-                // displayLottoSet 함수에 modelLabel 전달
-                recommendedSets.push({ numbers: data.lotto_numbers.sort((a, b) => a - b), modelType: modelLabel });
-            } else {
-                throw new Error("올바른 로또 번호 형식이 아닙니다.");
-            }
-        } catch (error) {
-            console.error("로또 번호 생성 중 오류 발생:", error);
-            showMessage(`번호 생성에 실패했습니다: ${error.message}`, 'error');
-            hasError = true;
-            break;
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`API Error: ${errorData.error || response.statusText}`);
         }
-    }
 
-    // 모든 번호 생성 후 스피너 제거
-    if (spinnerDiv.parentNode) {
-        spinnerDiv.parentNode.removeChild(spinnerDiv);
-    }
-
-    if (!hasError) {
-        if (recommendedSets.length > 0) {
-            recommendedSets.forEach((set, index) => { // set 객체에서 numbers와 modelType 추출
-                displayLottoSet(set.numbers, index + 1, set.modelType); // modelType 인자 추가
+        const data = await response.json();
+        // Backend now returns data.lotto_numbers as an array of objects: 
+        // [{"numbers": [...], "historical_hit_rates": {...}}, ...]
+        if (data.lotto_numbers && Array.isArray(data.lotto_numbers)) {
+            data.lotto_numbers.forEach((lottoSetData, indexInResponse) => {
+                // Add a defensive check here to ensure lottoSetData.numbers is valid
+                if (lottoSetData && Array.isArray(lottoSetData.numbers)) {
+                    // Pass the entire lottoSetData (including historical_hit_rates) to display
+                    displayLottoSet(
+                        lottoSetData.numbers.sort((a, b) => a - b), // Ensure numbers are sorted for display
+                        indexInResponse + 1, // Number sets from 1 to numSets
+                        modelLabel,
+                        lottoSetData.historical_hit_rates
+                    );
+                } else {
+                    console.error("Received malformed lotto set data:", lottoSetData);
+                    showMessage('Received invalid lotto number set from API. Please check console for details.', 'error');
+                    hasError = true; // Mark as error to prevent success message
+                }
             });
-            showMessage('로또 추천 번호가 생성되었습니다!', 'success');
+            // Only show success message if no errors occurred during iteration
+            if (!hasError) {
+                showMessage('Lotto recommendation numbers generated!', 'success');
+            }
         } else {
-            showMessage('생성된 로또 번호가 없습니다. 다시 시도해주세요.', 'warning');
+            throw new Error("Invalid lotto numbers format from API.");
+        }
+    } catch (error) {
+        console.error("Error generating lotto numbers:", error);
+        showMessage(`Failed to generate numbers: ${error.message}`, 'error');
+        hasError = true;
+    } finally {
+        // Always remove the spinner after generation (or error)
+        if (spinnerDiv.parentNode) {
+            spinnerDiv.parentNode.removeChild(spinnerDiv);
         }
     }
 }
 
-// 로또 번호 세트를 UI에 표시하는 함수 (modelLabel 인자 추가)
-function displayLottoSet(numbers, setIndex, modelLabel) {
+// Function to display a lotto number set on the UI (now includes historicalHitRates)
+function displayLottoSet(numbers, setIndex, modelLabel, historicalHitRates) {
     const card = document.createElement('div');
     card.classList.add('lotto-set-card');
 
     const title = document.createElement('h3');
-    // 모델 타입 라벨을 제목에 추가
-    title.textContent = `[${modelLabel}] 추천 번호 #${setIndex}`;
+    title.textContent = `[${modelLabel}] Recommended Numbers #${setIndex}`;
     card.appendChild(title);
 
     const numbersDiv = document.createElement('div');
@@ -251,16 +250,34 @@ function displayLottoSet(numbers, setIndex, modelLabel) {
     });
     card.appendChild(numbersDiv);
 
-    // TODO: 여기에 과거 적중 확률 표시 로직 추가 (추후 구현)
+    // Display historical hit rates
     const hitRate = document.createElement('p');
     hitRate.classList.add('hit-rate');
-    hitRate.textContent = `(지난 회차 적중률: 계산 예정)`;
+
+    if (historicalHitRates) {
+        let hitRateText = "Historical Matches: ";
+        const matches = [];
+        if (historicalHitRates["1st"] > 0) matches.push(`${historicalHitRates["1st"]} (1st)`);
+        if (historicalHitRates["2nd"] > 0) matches.push(`${historicalHitRates["2nd"]} (2nd)`);
+        if (historicalHitRates["3rd"] > 0) matches.push(`${historicalHitRates["3rd"]} (3rd)`);
+        if (historicalHitRates["4th"] > 0) matches.push(`${historicalHitRates["4th"]} (4th)`);
+        if (historicalHitRates["5th"] > 0) matches.push(`${historicalHitRates["5th"]} (5th)`);
+
+        if (matches.length > 0) {
+            hitRateText += matches.join(', ');
+        } else {
+            hitRateText += "None (3rd-5th grades)"; // No matches for 3rd, 4th, 5th prizes
+        }
+        hitRate.textContent = hitRateText;
+    } else {
+        hitRate.textContent = `(Historical Match Rate: Calculating...)`; // Fallback text
+    }
     card.appendChild(hitRate);
 
     lottoNumbersDisplay.appendChild(card);
 }
 
-// 사용자에게 메시지를 표시하는 함수 (성공, 오류, 정보 등)
+// Function to display messages to the user (success, error, info, etc.)
 function showMessage(msg, type) {
     messageElement.textContent = msg;
     messageElement.classList.remove('hidden', 'error', 'info', 'success', 'warning');
@@ -275,7 +292,7 @@ function showMessage(msg, type) {
 }
 
 
-// --- 이벤트 리스너 등록 ---
+// --- Event Listeners ---
 generateBtn.addEventListener('click', generateLottoNumbers);
 viewDrawDetailsBtn.addEventListener('click', (e) => {
     e.preventDefault();
@@ -285,9 +302,9 @@ hideDrawDetailsBtn.addEventListener('click', () => {
     latestDrawDetailsSection.classList.add('hidden');
 });
 
-// 탭 버튼 클릭 이벤트 리스너
+// Tab button click event listeners
 statisticalTabBtn.addEventListener('click', switchModelType);
 mlTabBtn.addEventListener('click', switchModelType);
 
-// --- 페이지 로드 시 초기화 함수 호출 ---
+// --- Call initialization function on page load ---
 document.addEventListener('DOMContentLoaded', initializeApp);
