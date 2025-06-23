@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+ <!-- Language setting changed to English -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lucky Vicky Lotto Number Recommender</title> <!-- Title changed to English -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔮 Lucky Vicky Lotto Number Recommender</h1> <!-- Header text already English -->
+        </header>
+
+        <main>
+            <section class="controls">
+                <div class="draw-info">
+                    <p><strong>Latest Draw:</strong> <span id="latestDrawNum">Loading...</span> <a href="#" id="viewDrawDetails" class="link-button"> (View Draw Details)</a></p> <!-- Text already English -->
+                    <p><strong>Next Draw:</strong> <span id="nextDrawNum">Calculating...</span>, <span id="nextDrawDate">Calculating...</span></p> <!-- Text already English -->
+                </div>
+
+                <div class="model-selection">
+                    <button id="statisticalTabBtn" class="tab-button active" data-model-type="statistical">Statistical Recommendation</button> <!-- Text already English -->
+                    <button id="mlTabBtn" class="tab-button" data-model-type="kmeans">ML-based Recommendation</button> <!-- Text already English -->
+                </div>
+
+                <!-- Latest Draw Details Section (initially hidden) -->
+                <div id="latestDrawDetailsSection" class="draw-details-section hidden">
+                    <h3>Draw #<span id="displayedDrawNum"></span> Results</h3> <!-- Text already English -->
+                    <div class="winning-numbers-display">
+                        <div class="main-numbers">
+                            <!-- Winning numbers displayed here -->
+                        </div>
+                        <div class="bonus-number-display">
+                            + <span class="lotto-number bonus-num"></span>
+                            <p class="bonus-label">Bonus</p> <!-- Text already English -->
+                        </div>
+                    </div>
+                    <div class="prize-info-grid">
+                        <!-- Prize info per rank displayed here -->
+                    </div>
+                    <button id="hideDrawDetails" class="hide-button">Close</button> <!-- Text already English -->
+                </div>
+
+                <label for="numSets">How many sets would you like to recommend?</label> <!-- Text already English -->
+                <select id="numSets">
+                    <option value="1">1 Set</option> <!-- Text already English -->
+                    <option value="2">2 Sets</option>
+                    <option value="3">3 Sets</option>
+                    <option value="4">4 Sets</option>
+                    <option value="5">5 Sets</option>
+                    <option value="6">6 Sets</option>
+                    <option value="7">7 Sets</option>
+                    <option value="8">8 Sets</option>
+                    <option value="9">9 Sets</option>
+                    <option value="10">10 Sets</option>
+                </select>
+                <button id="generateBtn">Generate Lotto Numbers</button> <!-- Text already English -->
+            </section>
+
+            <section class="results">
+                <p id="message" class="hidden"></p>
+                <div id="lottoNumbersDisplay" class="lotto-grid">
+                    <!-- Generated lotto number sets will be added here dynamically -->
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 Lucky Vicky Lotto Recommender. All rights reserved.</p> <!-- Text already English -->
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

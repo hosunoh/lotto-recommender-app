@@ -1,0 +1,230 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 대시보드 - Lucky Vicky Lotto</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 공통 스타일시트 -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 페이지별 배경 및 기본 폰트 설정 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom right, #4A00B7, #8B008B); /* 보라색 계열 그라디언트 */
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 상단 정렬 (스크롤 가능성 고려) */
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: rgba(255, 255, 255, 0.1); /* 투명한 흰색 배경 */
+            padding: 30px 40px;
+            border-radius: 15px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 900px; /* 더 넓은 컨테이너 */
+            width: 100%;
+            backdrop-filter: blur(10px); /* 블러 효과 */
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 20px; /* 상단 여백 추가 */
+            margin-bottom: 20px; /* 하단 여백 추가 */
+        }
+
+        h2 {
+            font-size: 2.8em;
+            margin-bottom: 25px;
+            font-weight: 700;
+            color: #FFD700; /* 황금색 */
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.4);
+        }
+        /* 공통 버튼 스타일 */
+        .px-6.py-2.bg-red-600, .px-6.py-3.bg-indigo-600, .px-6.py-3.bg-purple-600, .px-6.py-3.bg-green-600, .px-6.py-2.bg-blue-600 {
+            border-radius: 8px; /* Tailwind의 기본 rounded-md 대신 둥근 모서리 */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); /* 그림자 효과 */
+        }
+
+            .px-6.py-2.bg-red-600:hover, .px-6.py-3.bg-indigo-600:hover, .px-6.py-3.bg-purple-600:hover, .px-6.py-3.bg-green-600:hover, .px-6.py-2.bg-blue-600:hover {
+                transform: translateY(-2px); /* 호버 시 약간 위로 이동 */
+                box-shadow: 0 6px 15px rgba(0,0,0,0.3); /* 그림자 강조 */
+            }
+
+        /* 입력 필드 및 텍스트 영역 스타일 */
+        input[type="number"], input[type="text"], textarea, select {
+            color: #333 !important; /* 글자색 진하게 */
+            background-color: #f0f0f0 !important; /* 배경색 밝게 */
+            border-color: #ccc !important; /* 테두리색 */
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+            input::placeholder, textarea::placeholder {
+                color: #777 !important; /* 플레이스홀더 색상 */
+            }
+
+        label {
+            color: #e0e0e0; /* 밝은 회색으로 라벨 텍스트 */
+            font-weight: 600;
+        }
+
+        /* 로또 번호 동그라미 */
+        .lotto-number-circle {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #fff;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s ease;
+            flex-shrink: 0; /* 줄바꿈 방지 */
+        }
+
+            .lotto-number-circle:hover {
+                transform: translateY(-3px);
+            }
+
+            .lotto-number-circle.bg-blue-500 {
+                background-color: #3b82f6;
+            }
+            /* 일반 추천 번호 */
+            .lotto-number-circle.bg-green-500 {
+                background-color: #22c55e;
+            }
+            /* 당첨 번호 */
+            .lotto-number-circle.bg-yellow-500 {
+                background-color: #eab308;
+            }
+        /* 보너스 번호 */
+
+        /* 스피너 스타일 */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 메시지 박스 스타일 (script.js에서 사용) */
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000; /* 최상단에 오도록 */
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            color: white;
+            font-weight: bold;
+            text-align: center;
+            max-width: 300px;
+            background-color: #333; /* 기본 메시지 박스 배경 */
+        }
+
+            .message-box.bg-red-500 {
+                background-color: #ef4444;
+            }
+
+            .message-box.bg-green-500 {
+                background-color: #22c55e;
+            }
+
+            .message-box.bg-blue-500 {
+                background-color: #3b82f6;
+            }
+
+            .message-box.bg-gray-500 {
+                background-color: #6b7280;
+            }
+            /* 인포 메시지용 */
+            .message-box .close-btn {
+                margin-top: 15px;
+                padding: 8px 15px;
+                border: none;
+                border-radius: 5px;
+                background-color: rgba(255, 255, 255, 0.3);
+                color: white;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+
+                .message-box .close-btn:hover {
+                    background-color: rgba(255, 255, 255, 0.5);
+                }
+
+        /* Admin Dashboard specific colors and layout */
+        .admin-dashboard-layout {
+            background: linear-gradient(to bottom right, #FF4500, #FFD700); /* 오렌지-골드 그라디언트 */
+        }
+
+            .admin-dashboard-layout input, .admin-dashboard-layout textarea {
+                color: #333 !important; /* 관리자 폼의 입력 필드 글자색 */
+                background-color: #e0e0e0 !important; /* 관리자 폼의 입력 필드 배경색 */
+                border-color: #a0a0a0 !important;
+            }
+
+            .admin-dashboard-layout label {
+                color: #333 !important; /* 관리자 폼의 라벨 색상 */
+            }
+
+        .admin-section {
+            background-color: rgba(255, 255, 255, 0.2); /* 관리자 섹션 배경 */
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+            .admin-section h3 {
+                color: #FFF; /* 흰색으로 제목 */
+                font-weight: bold;
+                margin-bottom: 15px;
+            }
+
+            .admin-section .bg-green-600 { /* 관리자 추가 버튼 */
+                background-color: #28a745;
+            }
+
+                .admin-section .bg-green-600:hover {
+                    background-color: #218838;
+                }
+    </style>
+</head>
+<body>
+    <div id="app" class="w-full flex justify-center items-center min-h-screen">
+        <!-- 이 곳에 사용자 또는 관리자 대시보드 내용이 동적으로 로드됩니다 -->
+    </div>
+
+    <!-- Firebase SDK CDN (script.js에서 사용하기 위해 포함) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <!-- 앱의 주요 JavaScript 로직 -->
+    <script src="script.js"></script>
+</body>
+</html>

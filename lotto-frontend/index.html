@@ -1,77 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
- <!-- Language setting changed to English -->
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lucky Vicky Lotto Number Recommender</title> <!-- Title changed to English -->
+    <title>Lucky Vicky Lotto Number Recommender</title>
+    <!-- Tailwind CSS CDN (스타일링을 위해 필요) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 앱의 기본 스타일시트 -->
     <link rel="stylesheet" href="style.css">
+  
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔮 Lucky Vicky Lotto Number Recommender</h1> <!-- Header text already English -->
+            <h1>🔮 행운의 로또 번호 추천기</h1>
+            <div class="auth-buttons">
+                <a href="member.html" class="auth-button">회원 가입</a>
+                <a href="login.html" class="auth-button">로그인</a>
+            </div>
+            <div class="model-selection">
+                <button id="statisticalTabBtn" class="tab-button active" data-model-type="statistical">통계 기반 추천</button>
+                <button id="mlTabBtn" class="tab-button" data-model-type="kmeans">ML 기반 추천</button>
+            </div>
         </header>
 
         <main>
             <section class="controls">
                 <div class="draw-info">
-                    <p><strong>Latest Draw:</strong> <span id="latestDrawNum">Loading...</span> <a href="#" id="viewDrawDetails" class="link-button"> (View Draw Details)</a></p> <!-- Text already English -->
-                    <p><strong>Next Draw:</strong> <span id="nextDrawNum">Calculating...</span>, <span id="nextDrawDate">Calculating...</span></p> <!-- Text already English -->
+                    <p><strong>최신 회차:</strong> <span id="latestDrawNum">불러오는 중...</span> <a href="#" id="viewDrawDetails" class="link-button"> (당첨 내용 확인)</a></p>
+                    <p><strong>다음 추첨일:</strong> <span id="nextDrawNum">계산 중...</span>, <span id="nextDrawDate">계산 중...</span></p>
                 </div>
 
-                <div class="model-selection">
-                    <button id="statisticalTabBtn" class="tab-button active" data-model-type="statistical">Statistical Recommendation</button> <!-- Text already English -->
-                    <button id="mlTabBtn" class="tab-button" data-model-type="kmeans">ML-based Recommendation</button> <!-- Text already English -->
-                </div>
-
-                <!-- Latest Draw Details Section (initially hidden) -->
+                <!-- 최신 당첨 내용 표시 섹션 (처음에는 숨김) -->
                 <div id="latestDrawDetailsSection" class="draw-details-section hidden">
-                    <h3>Draw #<span id="displayedDrawNum"></span> Results</h3> <!-- Text already English -->
+                    <h3>제 <span id="displayedDrawNum"></span>회 당첨 결과</h3>
                     <div class="winning-numbers-display">
                         <div class="main-numbers">
-                            <!-- Winning numbers displayed here -->
+                            <!-- 당첨 번호 표시 -->
                         </div>
                         <div class="bonus-number-display">
                             + <span class="lotto-number bonus-num"></span>
-                            <p class="bonus-label">Bonus</p> <!-- Text already English -->
+                            <p class="bonus-label">보너스</p>
                         </div>
                     </div>
                     <div class="prize-info-grid">
-                        <!-- Prize info per rank displayed here -->
+                        <!-- 등수별 당첨금 표시 -->
                     </div>
-                    <button id="hideDrawDetails" class="hide-button">Close</button> <!-- Text already English -->
+                    <button id="hideDrawDetails" class="hide-button">닫기</button>
                 </div>
 
-                <label for="numSets">How many sets would you like to recommend?</label> <!-- Text already English -->
+                <label for="numSets">몇 세트 추천받으시겠어요?</label>
                 <select id="numSets">
-                    <option value="1">1 Set</option> <!-- Text already English -->
-                    <option value="2">2 Sets</option>
-                    <option value="3">3 Sets</option>
-                    <option value="4">4 Sets</option>
-                    <option value="5">5 Sets</option>
-                    <option value="6">6 Sets</option>
-                    <option value="7">7 Sets</option>
-                    <option value="8">8 Sets</option>
-                    <option value="9">9 Sets</option>
-                    <option value="10">10 Sets</option>
+                    <option value="1">1 세트</option>
+                    <option value="2">2 세트</option>
+                    <option value="3">3 세트</option>
+                    <option value="4">4 세트</option>
+                    <option value="5">5 세트</option>
+                    <option value="6">6 세트</option>
+                    <option value="7">7 세트</option>
+                    <option value="8">8 세트</option>
+                    <option value="9">9 세트</option>
+                    <option value="10">10 세트</option>
                 </select>
-                <button id="generateBtn">Generate Lotto Numbers</button> <!-- Text already English -->
+                <button id="generateBtn">로또 번호 생성</button>
             </section>
 
             <section class="results">
                 <p id="message" class="hidden"></p>
                 <div id="lottoNumbersDisplay" class="lotto-grid">
-                    <!-- Generated lotto number sets will be added here dynamically -->
+                    <!-- 여기에 생성된 로또 번호 세트들이 동적으로 추가됩니다 -->
                 </div>
             </section>
         </main>
 
         <footer>
-            <p>&copy; 2025 Lucky Vicky Lotto Recommender. All rights reserved.</p> <!-- Text already English -->
+            <p>&copy; 2025 Lucky Vicky Lotto Recommender. All rights reserved.</p>
         </footer>
     </div>
 
+    <!-- Firebase SDK CDN (인증 및 데이터베이스를 위해 필요) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
+    <!-- 앱의 주요 JavaScript 로직 (기존 script.js) -->
     <script src="script.js"></script>
 </body>
 </html>

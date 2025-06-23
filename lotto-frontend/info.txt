@@ -1,0 +1,8 @@
+﻿const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+    apiKey: "AIzaSyDQZHgkxZ7VIL7rsX-ILqQsG894brhzMSE", // 실제 Firebase API 키
+    authDomain: "lucky-vicky-lotto-app.firebaseapp.com", // 실제 프로젝트 ID
+    projectId: "lucky-vicky-lotto-app", // 실제 프로젝트 ID
+    storageBucket: "lucky-vicky-lotto-app.appspot.com", // 실제 프로젝트 ID
+    messagingSenderId: "295635715305", // 실제 메시징 센더 ID
+    appId: "1:295635715305:web:bda03736f58a0f07a4dc78" // 실제 앱 ID
+};
